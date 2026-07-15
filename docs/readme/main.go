@@ -21,6 +21,8 @@ const (
 	apiStart      = "<!-- api:embed:start -->"
 	apiEnd        = "<!-- api:embed:end -->"
 	documentation = "https://pkg.go.dev/github.com/goforj/console"
+	setupStart    = "// @readme:setup:start"
+	setupEnd      = "// @readme:setup:end"
 )
 
 var (
@@ -28,16 +30,26 @@ var (
 	readmeExampleHeader = regexp.MustCompile(`(?im)^\s*@readme\s+([a-z][a-z0-9-]*)\s*$`)
 )
 
-// readmeExampleSections defines the deliberately small set of workflows represented in the README.
+// readmeExampleSections defines the deliberately focused set of workflows represented in the README.
 var readmeExampleSections = []struct {
 	id    string
 	title string
 }{
-	{id: "messages", title: "Semantic messages and custom writers"},
-	{id: "layout", title: "Boxes, tables, and lists"},
-	{id: "loader", title: "Redirect-safe loader lifecycle"},
-	{id: "prompts", title: "Scripted prompts"},
+	{id: "messages", title: "Semantic and multiline messages"},
+	{id: "output", title: "Plain output and coordinated writers"},
+	{id: "styling", title: "Adaptive styles and marks"},
+	{id: "summaries", title: "Sections, rules, and summaries"},
+	{id: "lists", title: "Bulleted and numbered lists"},
+	{id: "trees", title: "Trees"},
+	{id: "boxes", title: "Boxes"},
+	{id: "tables", title: "Tables"},
+	{id: "table-options", title: "Compact, fixed, and aligned tables"},
+	{id: "loader", title: "Redirect-safe loader outcomes"},
+	{id: "progress", title: "Determinate progress"},
+	{id: "prompts", title: "Questions, defaults, and confirmation"},
+	{id: "selection", title: "Choices and secret input"},
 	{id: "text", title: "ANSI-aware text utilities"},
+	{id: "instance", title: "Isolated console instances"},
 }
 
 // apiSymbol contains the public identity and grouping needed for the compact README index.
@@ -160,20 +172,143 @@ func extractREADMEExamples(fileSet *token.FileSet, file *ast.File) ([]readmeExam
 			return nil, fmt.Errorf("%s cannot be converted into a standalone program", name)
 		}
 
-		var code bytes.Buffer
-		if err := format.Node(&code, fileSet, example.Play); err != nil {
+		code, err := formatREADMEExample(fileSet, example.Play)
+		if err != nil {
 			return nil, fmt.Errorf("format %s: %w", name, err)
+		}
+		inlineOutput, err := extractInlineOutput(example.Play)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s inline output: %w", name, err)
+		}
+		if inlineOutput != example.Output {
+			return nil, fmt.Errorf(
+				"%s inline output comments are %q; want exact // Output: text %q",
+				name,
+				inlineOutput,
+				example.Output,
+			)
 		}
 
 		examples = append(examples, readmeExample{
 			id:     matches[0][1],
 			name:   name,
-			code:   strings.TrimSpace(code.String()),
+			code:   code,
 			output: example.Output,
 		})
 	}
 
 	return examples, nil
+}
+
+// formatREADMEExample renders only the example body so deterministic test wiring does not obscure global helpers.
+func formatREADMEExample(fileSet *token.FileSet, file *ast.File) (string, error) {
+	var mainFunction *ast.FuncDecl
+	for _, declaration := range file.Decls {
+		function, ok := declaration.(*ast.FuncDecl)
+		if ok && function.Name.Name == "main" {
+			mainFunction = function
+			break
+		}
+	}
+	if mainFunction == nil {
+		return "", errors.New("standalone example has no main function")
+	}
+
+	comments := make([]*ast.CommentGroup, 0, len(file.Comments))
+	for _, group := range file.Comments {
+		if group.Pos() >= mainFunction.Body.Pos() && group.End() <= mainFunction.Body.End() {
+			comments = append(comments, group)
+		}
+	}
+	snippetFile := &ast.File{
+		Name: ast.NewIdent("main"),
+		Decls: []ast.Decl{&ast.FuncDecl{
+			Name: ast.NewIdent("main"),
+			Type: mainFunction.Type,
+			Body: mainFunction.Body,
+		}},
+		Comments: comments,
+	}
+
+	var formatted bytes.Buffer
+	if err := format.Node(&formatted, fileSet, snippetFile); err != nil {
+		return "", err
+	}
+	value := formatted.String()
+	start := strings.Index(value, "func main() {")
+	if start < 0 {
+		return "", errors.New("formatted example has no main function")
+	}
+	value = strings.TrimSpace(value[start+len("func main() {"):])
+	value = strings.TrimSpace(strings.TrimSuffix(value, "}"))
+
+	lines := strings.Split(value, "\n")
+	visible := make([]string, 0, len(lines))
+	skippingSetup := false
+	foundSetupStart := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		switch trimmed {
+		case setupStart:
+			if skippingSetup || foundSetupStart {
+				return "", errors.New("example has duplicate README setup markers")
+			}
+			foundSetupStart = true
+			skippingSetup = true
+			continue
+		case setupEnd:
+			if !skippingSetup {
+				return "", errors.New("example has an unmatched README setup end marker")
+			}
+			skippingSetup = false
+			continue
+		}
+		if skippingSetup {
+			continue
+		}
+		visible = append(visible, strings.TrimPrefix(line, "\t"))
+	}
+	if skippingSetup {
+		return "", errors.New("example has an unmatched README setup start marker")
+	}
+	return strings.TrimSpace(strings.Join(visible, "\n")), nil
+}
+
+// extractInlineOutput collects comments inside main so README output stays next to the call that produced it.
+func extractInlineOutput(file *ast.File) (string, error) {
+	var body *ast.BlockStmt
+	for _, declaration := range file.Decls {
+		function, ok := declaration.(*ast.FuncDecl)
+		if ok && function.Name.Name == "main" {
+			body = function.Body
+			break
+		}
+	}
+	if body == nil {
+		return "", errors.New("standalone example has no main function")
+	}
+
+	var lines []string
+	for _, group := range file.Comments {
+		if group.Pos() < body.Pos() || group.End() > body.End() {
+			continue
+		}
+		for _, comment := range group.List {
+			if !strings.HasPrefix(comment.Text, "//") {
+				return "", errors.New("inline output must use line comments")
+			}
+			if comment.Text == setupStart || comment.Text == setupEnd {
+				continue
+			}
+			line := strings.TrimPrefix(comment.Text, "//")
+			line = strings.TrimPrefix(line, " ")
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) == 0 {
+		return "", errors.New("standalone example has no inline output comments")
+	}
+	return strings.Join(lines, "\n") + "\n", nil
 }
 
 // orderREADMEExamples rejects missing, duplicate, and unknown selections before assigning reader-facing titles.
@@ -576,41 +711,22 @@ func renderAPI(symbols []apiSymbol) string {
 	return strings.TrimRight(output.String(), "\n")
 }
 
-// renderExamples presents the tested program and exact asserted output for each curated workflow.
+// renderExamples presents each tested snippet with exact output comments beside the calls that produce it.
 func renderExamples(examples []readmeExample) string {
 	var output strings.Builder
 	output.WriteString("## Executable examples\n\n")
-	output.WriteString("These programs are generated from standard Go example tests. ")
-	output.WriteString("The test suite executes each one and verifies the output appended as comments.\n")
+	output.WriteString("These focused snippets are generated from standard Go example tests. ")
+	output.WriteString("The test suite executes each one and verifies every inline output comment.\n")
 
 	for _, example := range examples {
 		output.WriteString("\n### " + example.title + "\n\n")
 		output.WriteString("```go\n")
 		output.WriteString(example.code)
-		output.WriteString("\n\n")
-		output.WriteString(renderOutputComments(example.output))
 		output.WriteByte('\n')
 		output.WriteString("```\n")
 	}
 
 	return strings.TrimRight(output.String(), "\n")
-}
-
-// renderOutputComments preserves tested output lines while presenting them as copy-safe Go comments.
-func renderOutputComments(value string) string {
-	lines := strings.Split(strings.TrimSuffix(value, "\n"), "\n")
-	var output strings.Builder
-	for index, line := range lines {
-		if index > 0 {
-			output.WriteByte('\n')
-		}
-		output.WriteString("//")
-		if line != "" {
-			output.WriteByte(' ')
-			output.WriteString(line)
-		}
-	}
-	return output.String()
 }
 
 // replaceMarkedSection refuses ambiguous marker layouts because guessing could overwrite hand-written documentation.

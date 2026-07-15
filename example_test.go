@@ -3,70 +3,255 @@ package console_test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/goforj/console"
 )
 
-// ExampleAction demonstrates deterministic semantic output through package-level helpers.
+// useExampleDefault installs a deterministic package-level console and returns its restore function.
+func useExampleDefault(config console.Config) func() {
+	previous := console.Default()
+	console.SetDefault(console.New(config))
+	return func() {
+		console.SetDefault(previous)
+	}
+}
+
+// ExampleAction demonstrates semantic messages and hanging indentation through package-level helpers.
 //
 // @readme messages
 func ExampleAction() {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
+	// @readme:setup:start
 	color := false
 	unicode := true
-	previous := console.Default()
-	defer console.SetDefault(previous)
-	console.SetDefault(console.New(console.Config{
-		Stdout:         &stdout,
-		Stderr:         &stderr,
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		Stderr:         os.Stdout,
 		ColorEnabled:   &color,
 		UnicodeEnabled: &unicode,
-	}))
+	})()
+	// @readme:setup:end
 
 	console.Action("Building application")
-	console.Success("Application ready")
+	// · Building application
+	console.Success("API ready\nWorker ready")
+	// ✔ API ready
+	//   Worker ready
+	console.Warn("Configuration is incomplete")
+	// ! Configuration is incomplete
 	console.Error("Port already in use")
+	// ✖ Port already in use
 
-	fmt.Print(stdout.String())
-	fmt.Print(stderr.String())
 	// Output:
 	// · Building application
-	// ✔ Application ready
+	// ✔ API ready
+	//   Worker ready
+	// ! Configuration is incomplete
 	// ✖ Port already in use
 }
 
-// ExampleBox demonstrates composable layout through package-level helpers.
+// ExamplePrintln demonstrates ordinary output and writer adapters that cooperate with transient displays.
 //
-// @readme layout
-func ExampleBox() {
-	var output bytes.Buffer
+// @readme output
+func ExamplePrintln() {
+	// @readme:setup:start
 	color := false
 	unicode := true
-	previous := console.Default()
-	defer console.SetDefault(previous)
-	console.SetDefault(console.New(console.Config{
-		Stdout:         &output,
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		Stderr:         os.Stdout,
 		ColorEnabled:   &color,
 		UnicodeEnabled: &unicode,
-		Width:          32,
-	}))
+	})()
+	// @readme:setup:end
 
-	console.List("api ready", "worker ready")
-	console.Box("All services healthy.", console.BoxTitle("Status"), console.BoxWidth(26))
+	console.Println("plain output")
+	// plain output
+	fmt.Fprintln(console.StdoutWriter(), "streamed output")
+	// streamed output
+	fmt.Fprintln(console.StderrWriter(), "diagnostic output")
+	// diagnostic output
+
+	// Output:
+	// plain output
+	// streamed output
+	// diagnostic output
+}
+
+// ExampleStyle demonstrates marks and styles that follow the console's output policy.
+//
+// @readme styling
+func ExampleStyle() {
+	// @readme:setup:start
+	color := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})()
+	// @readme:setup:end
+
+	fmt.Println(console.ActionMark(), console.SuccessMark(), console.ErrorMark())
+	// · ✔ ✖
+	fmt.Println(console.Style("release ready", console.StyleBold, console.ColorGreen))
+	// release ready
+
+	// Output:
+	// · ✔ ✖
+	// release ready
+}
+
+// ExampleSection demonstrates render-only layout helpers for composing deployment summaries.
+//
+// @readme summaries
+func ExampleSection() {
+	// @readme:setup:start
+	color := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+		Width:          24,
+	})()
+	// @readme:setup:end
+
+	fmt.Println(console.RenderSection("Deployment"))
+	// ◇ Deployment
+	fmt.Println(console.RenderKeyValues(
+		console.KV("Environment", "production"),
+		console.KV("Region", "eu-west-1"),
+	))
+	// Environment  production
+	// Region       eu-west-1
+	fmt.Println(console.RenderRule("Next"))
+	// ── Next ────────────────
+
+	// Output:
+	// ◇ Deployment
+	// Environment  production
+	// Region       eu-west-1
+	// ── Next ────────────────
+}
+
+// ExampleList demonstrates the two common list presentations.
+//
+// @readme lists
+func ExampleList() {
+	// @readme:setup:start
+	color := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})()
+	// @readme:setup:end
+
+	console.List("validate configuration", "connect to database")
+	// • validate configuration
+	// • connect to database
+	console.NumberedList("build", "test", "publish")
+	// 1. build
+	// 2. test
+	// 3. publish
+
+	// Output:
+	// • validate configuration
+	// • connect to database
+	// 1. build
+	// 2. test
+	// 3. publish
+}
+
+// ExampleTree demonstrates an ordered static hierarchy with automatic connectors.
+//
+// @readme trees
+func ExampleTree() {
+	// @readme:setup:start
+	color := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})()
+	// @readme:setup:end
+
+	console.Tree(console.Node("project",
+		console.Node("cmd", console.Node("deploy")),
+		console.Node("internal"),
+		console.Node("README.md"),
+	))
+	// project
+	// ├── cmd
+	// │   └── deploy
+	// ├── internal
+	// └── README.md
+
+	// Output:
+	// project
+	// ├── cmd
+	// │   └── deploy
+	// ├── internal
+	// └── README.md
+}
+
+// ExampleBox demonstrates the useful box defaults and the two common adjustments.
+//
+// @readme boxes
+func ExampleBox() {
+	// @readme:setup:start
+	color := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})()
+	// @readme:setup:end
+
+	console.Box(
+		"The API and worker are healthy.",
+		console.BoxTitle("Status"),
+		console.BoxWidth(38),
+	)
+	// ┌─ Status ───────────────────────────┐
+	// │ The API and worker are healthy.    │
+	// └────────────────────────────────────┘
+
+	// Output:
+	// ┌─ Status ───────────────────────────┐
+	// │ The API and worker are healthy.    │
+	// └────────────────────────────────────┘
+}
+
+// ExampleTable demonstrates the bordered table used by default.
+//
+// @readme tables
+func ExampleTable() {
+	// @readme:setup:start
+	color := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})()
+	// @readme:setup:end
+
 	console.Table(
 		[]string{"Service", "State"},
 		[][]string{{"api", "ready"}, {"worker", "ready"}},
 	)
+	// ┌─────────┬───────┐
+	// │ Service │ State │
+	// ├─────────┼───────┤
+	// │ api     │ ready │
+	// │ worker  │ ready │
+	// └─────────┴───────┘
 
-	fmt.Print(output.String())
 	// Output:
-	// • api ready
-	// • worker ready
-	// ┌─ Status ───────────────┐
-	// │ All services healthy.  │
-	// └────────────────────────┘
 	// ┌─────────┬───────┐
 	// │ Service │ State │
 	// ├─────────┼───────┤
@@ -75,74 +260,223 @@ func ExampleBox() {
 	// └─────────┴───────┘
 }
 
-// ExampleNewLoader demonstrates the redirected loader contract without timing or terminal state.
+// ExampleTable_options demonstrates the restrained options for compact, fixed, aligned, and wrapped columns.
+//
+// @readme table-options
+func ExampleTable_options() {
+	// @readme:setup:start
+	color := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})()
+	// @readme:setup:end
+
+	console.Table(
+		[]string{"Task", "Seconds"},
+		[][]string{{"compile packages", "12"}, {"test", "3"}},
+		console.TableCompact(),
+		console.TableWidths(8, 7),
+		console.TableRightAlign(1),
+	)
+	// Task      Seconds
+	// ────────  ───────
+	// compile        12
+	// packages
+	// test            3
+
+	// Output:
+	// Task      Seconds
+	// ────────  ───────
+	// compile        12
+	// packages
+	// test            3
+}
+
+// ExampleNewLoader demonstrates stable loader outcomes when output is redirected.
 //
 // @readme loader
 func ExampleNewLoader() {
-	var output bytes.Buffer
+	// @readme:setup:start
 	color := false
 	animations := false
 	unicode := true
-	previous := console.Default()
-	defer console.SetDefault(previous)
-	console.SetDefault(console.New(console.Config{
-		Stdout:            &output,
+	defer useExampleDefault(console.Config{
+		Stdout:            os.Stdout,
+		Stderr:            os.Stdout,
 		ColorEnabled:      &color,
 		UnicodeEnabled:    &unicode,
 		AnimationsEnabled: &animations,
-	}))
+	})()
+	// @readme:setup:end
 
-	loader := console.NewLoader("Downloading modules")
-	_ = loader.Start()
-	loader.Success("Modules ready")
+	download := console.NewLoader("Downloading modules")
+	_ = download.Start()
+	// · Downloading modules
+	download.Success("Modules ready")
+	// ✔ Modules ready
 
-	fmt.Print(output.String())
+	publish := console.NewLoader("Publishing release")
+	_ = publish.Start()
+	// · Publishing release
+	publish.Fail("Registry refused upload")
+	// ✖ Registry refused upload
+
 	// Output:
 	// · Downloading modules
 	// ✔ Modules ready
+	// · Publishing release
+	// ✖ Registry refused upload
 }
 
-// ExampleConfirm demonstrates scripted prompt input with an explicit interactive override.
+// ExampleNewProgress demonstrates determinate work with a durable redirected-output contract.
+//
+// @readme progress
+func ExampleNewProgress() {
+	// @readme:setup:start
+	color := false
+	animations := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		Stdout:            os.Stdout,
+		ColorEnabled:      &color,
+		UnicodeEnabled:    &unicode,
+		AnimationsEnabled: &animations,
+	})()
+	// @readme:setup:end
+
+	progress := console.NewProgress(100, "Packaging release")
+	_ = progress.Start()
+	// · Packaging release
+	progress.Set(40)
+	progress.Add(60)
+	progress.Complete("Release ready")
+	// ✔ Release ready
+
+	// Output:
+	// · Packaging release
+	// ✔ Release ready
+}
+
+// ExampleAsk demonstrates the common line, default, and confirmation prompts with scripted input.
 //
 // @readme prompts
-func ExampleConfirm() {
+func ExampleAsk() {
 	var output bytes.Buffer
 	interactive := true
 	color := false
 	unicode := true
+	// @readme:setup:start
 	previous := console.Default()
 	defer console.SetDefault(previous)
+	// @readme:setup:end
 	console.SetDefault(console.New(console.Config{
-		Stdin:              strings.NewReader("yes\n"),
+		Stdin:              strings.NewReader("Ada\n\nyes\n"),
 		Stdout:             &output,
 		InteractiveEnabled: &interactive,
 		ColorEnabled:       &color,
 		UnicodeEnabled:     &unicode,
 	}))
 
-	confirmed, err := console.Confirm("Deploy now", false)
+	name, _ := console.Ask("Name")
+	environment, _ := console.AskDefault("Environment", "production")
+	confirmed, _ := console.Confirm("Deploy now", false)
 	fmt.Printf("%q\n", output.String())
-	fmt.Println(confirmed, err)
+	// "› Name: › Environment [production]: › Deploy now [y/N]: "
+	fmt.Println(name, environment, confirmed)
+	// Ada production true
+
 	// Output:
-	// "› Deploy now [y/N]: "
-	// true <nil>
+	// "› Name: › Environment [production]: › Deploy now [y/N]: "
+	// Ada production true
 }
 
-// ExampleStripANSI demonstrates ANSI-aware measurement and text shaping.
+// ExampleChoose demonstrates a numbered choice and non-echoed secret input.
+//
+// @readme selection
+func ExampleChoose() {
+	var output bytes.Buffer
+	interactive := true
+	color := false
+	unicode := true
+	// @readme:setup:start
+	previous := console.Default()
+	defer console.SetDefault(previous)
+	// @readme:setup:end
+	console.SetDefault(console.New(console.Config{
+		Stdin:              strings.NewReader("2"),
+		Stdout:             &output,
+		InteractiveEnabled: &interactive,
+		ColorEnabled:       &color,
+		UnicodeEnabled:     &unicode,
+		ReadSecret: func() (string, error) {
+			return "token-value", nil
+		},
+	}))
+
+	channel, _ := console.Choose("Release channel", []string{"stable", "beta"}, 0)
+	secret, _ := console.AskSecret("API token")
+	fmt.Printf("%q\n", output.String())
+	// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: \n› API token: \n"
+	fmt.Println(channel, len(secret))
+	// beta 11
+
+	// Output:
+	// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: \n› API token: \n"
+	// beta 11
+}
+
+// ExampleStripANSI demonstrates terminal-cell-aware shaping for plain and styled text.
 //
 // @readme text
 func ExampleStripANSI() {
 	styled := "\x1b[31mGo 世界\x1b[0m"
 
 	fmt.Println(console.StripANSI(styled))
-	fmt.Println(console.VisibleWidth(styled))
-	fmt.Println(console.Truncate("deploying worker", 10))
-	fmt.Println(console.Wrap("deploying worker service", 10))
-	// Output:
 	// Go 世界
+	fmt.Println(console.VisibleWidth(styled))
 	// 7
-	// deploying…
+	fmt.Printf("%q\n", console.PadLeft("Go", 6))
+	// "    Go"
+	fmt.Printf("%q\n", console.PadCenter("Go", 6))
+	// "  Go  "
+	fmt.Println(console.TruncateMiddle("github.com/goforj/console", 15))
+	// github.…console
+	fmt.Println(console.Wrap("deploying worker service", 10))
 	// deploying
 	// worker
 	// service
+
+	// Output:
+	// Go 世界
+	// 7
+	// "    Go"
+	// "  Go  "
+	// github.…console
+	// deploying
+	// worker
+	// service
+}
+
+// ExampleNew demonstrates an isolated console for libraries and independently configured commands.
+//
+// @readme instance
+func ExampleNew() {
+	var output bytes.Buffer
+	color := false
+	unicode := false
+	commandConsole := console.New(console.Config{
+		Stdout:         &output,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})
+
+	commandConsole.Success("Isolated output")
+	fmt.Print(output.String())
+	// + Isolated output
+
+	// Output:
+	// + Isolated output
 }

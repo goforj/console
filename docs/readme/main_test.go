@@ -104,7 +104,7 @@ func (i *internalRuntime) Start() {}
 	}
 }
 
-// TestParseREADMEExamples verifies tagged standard examples become ordered standalone programs with exact output.
+// TestParseREADMEExamples verifies tagged standard examples become ordered focused snippets with exact output.
 func TestParseREADMEExamples(t *testing.T) {
 	t.Parallel()
 
@@ -115,10 +115,11 @@ func TestParseREADMEExamples(t *testing.T) {
 		name := fmt.Sprintf("Workflow%d", index)
 		fmt.Fprintf(
 			&source,
-			"// Example%s demonstrates a documented workflow.\n//\n// @readme %s\nfunc Example%s() {\n\tfmt.Println(%q)\n\t// Output: %s\n}\n\n",
+			"// Example%s demonstrates a documented workflow.\n//\n// @readme %s\nfunc Example%s() {\n\tfmt.Println(%q)\n\t// %s\n\n\t// Output: %s\n}\n\n",
 			name,
 			section.id,
 			name,
+			section.id,
 			section.id,
 			section.id,
 		)
@@ -142,8 +143,9 @@ func TestParseREADMEExamples(t *testing.T) {
 		if example.output != section.id+"\n" {
 			t.Fatalf("parseREADMEExamples()[%d].output = %q, want %q", index, example.output, section.id+"\n")
 		}
-		if !strings.Contains(example.code, "package main") || !strings.Contains(example.code, "func main()") {
-			t.Fatalf("parseREADMEExamples()[%d].code is not a standalone program:\n%s", index, example.code)
+		if strings.Contains(example.code, "package main") || strings.Contains(example.code, "func main()") ||
+			!strings.Contains(example.code, "fmt.Println") {
+			t.Fatalf("parseREADMEExamples()[%d].code is not a focused body snippet:\n%s", index, example.code)
 		}
 		if strings.Contains(example.code, "Output:") {
 			t.Fatalf("parseREADMEExamples()[%d].code retained its output assertion:\n%s", index, example.code)
@@ -168,6 +170,10 @@ func TestExtractREADMEExamplesRequiresExactOutput(t *testing.T) {
 			t.Parallel()
 
 			fileSet := token.NewFileSet()
+			inline := "\n\t// value\n"
+			if test.name == "missing" {
+				inline = ""
+			}
 			source := fmt.Sprintf(`package sample_test
 
 import "fmt"
@@ -176,9 +182,9 @@ import "fmt"
 //
 // @readme messages
 func Example() {
-	fmt.Println("value")%s
+	fmt.Println("value")%s%s
 }
-`, test.output)
+`, inline, test.output)
 			file, err := parser.ParseFile(fileSet, "example_test.go", source, parser.ParseComments)
 			if err != nil {
 				t.Fatal(err)
@@ -262,25 +268,21 @@ func TestRenderExamples(t *testing.T) {
 	examples := []readmeExample{
 		{
 			title:  "A workflow",
-			code:   "package main\n\nfunc main() { println(\"ready\") }",
-			output: "ready\nnext\n",
+			code:   "println(\"ready\")\n// ready",
+			output: "ready\n",
 		},
 	}
 	got := renderExamples(examples)
 	want := strings.Join([]string{
 		"## Executable examples",
 		"",
-		"These programs are generated from standard Go example tests. The test suite executes each one and verifies the output appended as comments.",
+		"These focused snippets are generated from standard Go example tests. The test suite executes each one and verifies every inline output comment.",
 		"",
 		"### A workflow",
 		"",
 		"```go",
-		"package main",
-		"",
-		`func main() { println("ready") }`,
-		"",
+		`println("ready")`,
 		"// ready",
-		"// next",
 		"```",
 	}, "\n")
 	if got != want {
@@ -288,14 +290,65 @@ func TestRenderExamples(t *testing.T) {
 	}
 }
 
-// TestRenderOutputComments verifies blank lines and whitespace remain represented in inline output comments.
-func TestRenderOutputComments(t *testing.T) {
+// TestExtractInlineOutput verifies blank lines and whitespace remain represented in inline output comments.
+func TestExtractInlineOutput(t *testing.T) {
 	t.Parallel()
 
-	got := renderOutputComments("first\n\n  padded  \n")
-	want := "// first\n//\n//   padded  "
+	fileSet := token.NewFileSet()
+	file, err := parser.ParseFile(fileSet, "example.go", `package main
+
+// helper remains outside the extracted output.
+func helper() {}
+
+func main() {
+	println("first")
+	// first
+	println("")
+	//
+	println("  padded")
+	//   padded
+}
+`, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := extractInlineOutput(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "first\n\n  padded\n"
 	if got != want {
-		t.Fatalf("renderOutputComments() = %q, want %q", got, want)
+		t.Fatalf("extractInlineOutput() = %q, want %q", got, want)
+	}
+}
+
+// TestFormatREADMEExampleOmitsSetup verifies deterministic harness code stays out of focused README snippets.
+func TestFormatREADMEExampleOmitsSetup(t *testing.T) {
+	t.Parallel()
+
+	fileSet := token.NewFileSet()
+	file, err := parser.ParseFile(fileSet, "example.go", `package main
+
+func main() {
+	// @readme:setup:start
+	configureForTest()
+	// @readme:setup:end
+	println("ready")
+	// ready
+}
+`, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := formatREADMEExample(fileSet, file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "println(\"ready\")\n// ready"
+	if got != want {
+		t.Fatalf("formatREADMEExample() = %q, want %q", got, want)
 	}
 }
 
