@@ -25,9 +25,8 @@ func main() {
 		console.Error(err.Error())
 		return
 	}
+	// · Downloading modules
 	loader.Update("Verifying modules")
 	loader.Success("Modules ready")
-
-	// · Downloading modules
 	// ✔ Modules ready
 }

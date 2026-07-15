@@ -19,26 +19,25 @@ func main() {
 	}))
 
 	console.Section("Deployment")
+	// ◇ Deployment
 	console.KeyValues(
 		console.KV("Environment", "production"),
 		console.KV("Region", "eu-west-1"),
 	)
+	// Environment  production
+	// Region       eu-west-1
 	console.Box(
 		"The API and worker are healthy.",
 		console.BoxTitle("Status"),
 		console.BoxWidth(38),
 	)
+	// ┌─ Status ───────────────────────────┐
+	// │ The API and worker are healthy.    │
+	// └────────────────────────────────────┘
 	console.Table(
 		[]string{"Service", "State"},
 		[][]string{{"api", "ready"}, {"worker", "ready"}},
 	)
-
-	// ◇ Deployment
-	// Environment  production
-	// Region       eu-west-1
-	// ┌─ Status ───────────────────────────┐
-	// │ The API and worker are healthy.    │
-	// └────────────────────────────────────┘
 	// ┌─────────┬───────┐
 	// │ Service │ State │
 	// ├─────────┼───────┤

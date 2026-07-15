@@ -19,10 +19,9 @@ func main() {
 	}))
 
 	console.Action("Building application")
-	console.Infof("Environment: %s", "development")
-	console.Success("Application ready")
-
 	// · Building application
+	console.Infof("Environment: %s", "development")
 	// · Environment: development
+	console.Success("Application ready")
 	// ✔ Application ready
 }
