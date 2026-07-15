@@ -1,0 +1,93 @@
+name: Go Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ["1.24.0", "stable"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Verify module files
+        run: |
+          go mod tidy
+          go -C docs mod tidy
+          go -C examples mod tidy
+          git diff --exit-code -- go.mod go.sum docs/go.mod docs/go.sum examples/go.mod examples/go.sum
+
+      - name: Verify generated documentation
+        run: |
+          go -C docs run ./readme
+          git diff --exit-code -- README.md
+
+      - name: Run vet
+        run: |
+          go vet ./...
+          go -C docs vet ./...
+          go -C examples vet ./...
+
+      - name: Run tests with race detection and coverage
+        run: |
+          go test -race -coverprofile=coverage.txt .
+          go test -race ./...
+          go -C docs test -race ./...
+          go -C examples test ./...
+
+      - name: Require at least 95% library coverage
+        run: |
+          go tool cover -func=coverage.txt |
+            awk '/^total:/ { found = 1; gsub("%", "", $3); if ($3 + 0 < 95) exit 1 } END { if (!found) exit 1 }'
+
+      - name: Upload results to Codecov
+        if: matrix.go-version == 'stable'
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Run portability tests
+        run: |
+          go test ./...
+          go -C docs test ./...
+          go -C examples test ./...
