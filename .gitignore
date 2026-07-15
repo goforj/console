@@ -1,0 +1,23 @@
+# Binaries and shared libraries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries and coverage artifacts
+*.test
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Local Go workspaces
+go.work
+go.work.sum
+
+# Local environment and editor files
+.env
+.idea/
+.vscode/
+.DS_Store
