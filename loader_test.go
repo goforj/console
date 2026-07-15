@@ -332,8 +332,8 @@ func TestLoaderRejectsConcurrentAnimationsAndCanRetry(t *testing.T) {
 		t.Fatalf("first Start() error = %v", err)
 	}
 	_ = waitForLoaderWrite(t, stdout)
-	if err := second.Start(); !errors.Is(err, ErrLoaderActive) {
-		t.Fatalf("second Start() error = %v, want ErrLoaderActive", err)
+	if err := second.Start(); !errors.Is(err, ErrTransientActive) {
+		t.Fatalf("second Start() error = %v, want ErrTransientActive", err)
 	}
 	requireNoLoaderWrite(t, stdout)
 

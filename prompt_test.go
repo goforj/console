@@ -57,6 +57,7 @@ func TestPromptMethodsRejectNonInteractiveInputWithoutReading(t *testing.T) {
 	}{
 		{name: "ask", call: func() error { _, err := console.Ask("Name"); return err }},
 		{name: "ask default", call: func() error { _, err := console.AskDefault("Name", "Ada"); return err }},
+		{name: "ask secret", call: func() error { _, err := console.AskSecret("Password"); return err }},
 		{name: "confirm", call: func() error { _, err := console.Confirm("Continue", true); return err }},
 		{name: "choose", call: func() error { _, err := console.Choose("Pick", []string{"one"}, 0); return err }},
 	}
@@ -76,6 +77,90 @@ func TestPromptMethodsRejectNonInteractiveInputWithoutReading(t *testing.T) {
 	}
 	if got := stderr.String(); got != "" {
 		t.Fatalf("stderr = %q, want empty", got)
+	}
+}
+
+// TestAskSecretUsesInjectedReader verifies secrets are returned exactly without appearing in output.
+func TestAskSecretUsesInjectedReader(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	interactive := true
+	color := false
+	unicode := false
+	calls := 0
+	console := New(Config{
+		Stdin:              strings.NewReader("ignored"),
+		Stdout:             stdout,
+		Stderr:             stderr,
+		InteractiveEnabled: &interactive,
+		ColorEnabled:       &color,
+		UnicodeEnabled:     &unicode,
+		ReadSecret: func() (string, error) {
+			calls++
+			return "  s3cr3t  ", nil
+		},
+	})
+
+	secret, err := console.AskSecret("Password")
+	if err != nil {
+		t.Fatalf("AskSecret() error = %v", err)
+	}
+	if secret != "  s3cr3t  " {
+		t.Fatalf("AskSecret() = %q, want exact secret", secret)
+	}
+	if calls != 1 {
+		t.Fatalf("ReadSecret calls = %d, want 1", calls)
+	}
+	if got, want := stdout.String(), "> Password: \n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+	if got := stderr.String(); got != "" {
+		t.Fatalf("stderr = %q, want empty", got)
+	}
+}
+
+// TestAskSecretPropagatesReaderErrors verifies hidden-input failures remain available to callers.
+func TestAskSecretPropagatesReaderErrors(t *testing.T) {
+	wantErr := errors.New("secret input failed")
+	stdout := &bytes.Buffer{}
+	interactive := true
+	color := false
+	unicode := false
+	console := New(Config{
+		Stdin:              strings.NewReader(""),
+		Stdout:             stdout,
+		InteractiveEnabled: &interactive,
+		ColorEnabled:       &color,
+		UnicodeEnabled:     &unicode,
+		ReadSecret: func() (string, error) {
+			return "", wantErr
+		},
+	})
+
+	secret, err := console.AskSecret("Token")
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("AskSecret() error = %v, want %v", err, wantErr)
+	}
+	if secret != "" {
+		t.Fatalf("AskSecret() = %q, want empty", secret)
+	}
+	if got, want := stdout.String(), "> Token: \n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+}
+
+// TestAskSecretRequiresTerminalReaderByDefault verifies explicit interactivity never weakens to echoed input.
+func TestAskSecretRequiresTerminalReaderByDefault(t *testing.T) {
+	console, stdout, _ := newPromptTestConsole(strings.NewReader("visible secret\n"), true)
+	secret, err := console.AskSecret("Password")
+	if err == nil || !strings.Contains(err.Error(), "terminal reader or Config.ReadSecret") {
+		t.Fatalf("AskSecret() error = %v, want terminal-reader guidance", err)
+	}
+	if secret != "" {
+		t.Fatalf("AskSecret() = %q, want empty", secret)
+	}
+	if got, want := stdout.String(), "> Password: \n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
 	}
 }
 
@@ -360,6 +445,9 @@ func TestPackagePromptHelpersRouteThroughDefault(t *testing.T) {
 	})
 
 	configured, _, _ := newPromptTestConsole(strings.NewReader("Ada\n\nno\n2\n"), true)
+	configured.readSecret = func() (string, error) {
+		return "token", nil
+	}
 	SetDefault(configured)
 
 	name, err := Ask("Name")
@@ -377,5 +465,9 @@ func TestPackagePromptHelpersRouteThroughDefault(t *testing.T) {
 	choice, err := Choose("Pick", []string{"one", "two"}, -1)
 	if err != nil || choice != "two" {
 		t.Fatalf("Choose() = %q, %v; want %q, nil", choice, err, "two")
+	}
+	secret, err := AskSecret("Token")
+	if err != nil || secret != "token" {
+		t.Fatalf("AskSecret() = %q, %v; want %q, nil", secret, err, "token")
 	}
 }

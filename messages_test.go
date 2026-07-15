@@ -2,12 +2,15 @@ package console
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // atomicWriteRecorder records write call boundaries and detects concurrent entry.
@@ -21,6 +24,24 @@ type atomicWriteRecorder struct {
 // trackedStringer records when formatted output evaluates its value.
 type trackedStringer struct {
 	calls *int
+}
+
+// failingOutputWriter returns a stable failure so adapter behavior can be tested without operating-system I/O.
+type failingOutputWriter struct {
+	err error
+}
+
+// shortOutputWriter accepts only a prefix without reporting the required error.
+type shortOutputWriter struct{}
+
+// Write reports the configured failure without accepting bytes.
+func (w failingOutputWriter) Write([]byte) (int, error) {
+	return 0, w.err
+}
+
+// Write simulates a broken destination so the adapter can restore the io.Writer contract.
+func (shortOutputWriter) Write(value []byte) (int, error) {
+	return min(2, len(value)), nil
 }
 
 // String records one formatting evaluation before returning a stable value.
@@ -66,6 +87,165 @@ func TestConsolePlainOutputPreservesPrintSemantics(t *testing.T) {
 	want := "raw1:02 line 3\n\n"
 	if got := stdout.String(); got != want {
 		t.Fatalf("ordinary output = %q, want %q", got, want)
+	}
+}
+
+// TestConsoleOutputWritersUseConfiguredDestinations verifies both adapters preserve Print-style semantics.
+func TestConsoleOutputWritersUseConfiguredDestinations(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	console := New(Config{Stdout: &stdout, Stderr: &stderr, Getenv: getenvFrom(nil)})
+
+	stdoutCount, stdoutErr := io.WriteString(console.StdoutWriter(), "ordinary")
+	stderrCount, stderrErr := io.WriteString(console.StderrWriter(), "failure")
+	if stdoutErr != nil || stdoutCount != len("ordinary") {
+		t.Fatalf("stdout Write() = (%d, %v), want (%d, nil)", stdoutCount, stdoutErr, len("ordinary"))
+	}
+	if stderrErr != nil || stderrCount != len("failure") {
+		t.Fatalf("stderr Write() = (%d, %v), want (%d, nil)", stderrCount, stderrErr, len("failure"))
+	}
+	if got, want := stdout.String(), "ordinary"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+	if got, want := stderr.String(), "failure"; got != want {
+		t.Fatalf("stderr = %q, want %q", got, want)
+	}
+}
+
+// TestConsoleOutputWritersPreserveDestinationErrors verifies adapters honor the io.Writer contract.
+func TestConsoleOutputWritersPreserveDestinationErrors(t *testing.T) {
+	t.Parallel()
+
+	wantErr := errors.New("write failed")
+	console := New(Config{
+		Stdout: failingOutputWriter{err: wantErr},
+		Stderr: failingOutputWriter{err: wantErr},
+		Getenv: getenvFrom(nil),
+	})
+	for name, writer := range map[string]io.Writer{
+		"stdout": console.StdoutWriter(),
+		"stderr": console.StderrWriter(),
+	} {
+		name, writer := name, writer
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			count, err := writer.Write([]byte("value"))
+			if count != 0 || !errors.Is(err, wantErr) {
+				t.Fatalf("Write() = (%d, %v), want (0, %v)", count, err, wantErr)
+			}
+			count, err = writer.Write(nil)
+			if count != 0 || err != nil {
+				t.Fatalf("Write(nil) = (%d, %v), want (0, nil)", count, err)
+			}
+		})
+	}
+}
+
+// TestConsoleOutputWritersReportSilentShortWrites verifies invalid destination results become io.ErrShortWrite.
+func TestConsoleOutputWritersReportSilentShortWrites(t *testing.T) {
+	t.Parallel()
+
+	console := New(Config{Stdout: shortOutputWriter{}, Getenv: getenvFrom(nil)})
+	count, err := console.StdoutWriter().Write([]byte("value"))
+	if count != 2 || !errors.Is(err, io.ErrShortWrite) {
+		t.Fatalf("Write() = (%d, %v), want (2, io.ErrShortWrite)", count, err)
+	}
+}
+
+// TestPackageOutputWritersSnapshotDefault verifies existing adapters do not change destinations after SetDefault.
+func TestPackageOutputWritersSnapshotDefault(t *testing.T) {
+	previous := Default()
+	t.Cleanup(func() {
+		SetDefault(previous)
+	})
+
+	var firstStdout bytes.Buffer
+	var firstStderr bytes.Buffer
+	SetDefault(New(Config{Stdout: &firstStdout, Stderr: &firstStderr, Getenv: getenvFrom(nil)}))
+	stdoutWriter := StdoutWriter()
+	stderrWriter := StderrWriter()
+
+	var secondStdout bytes.Buffer
+	var secondStderr bytes.Buffer
+	SetDefault(New(Config{Stdout: &secondStdout, Stderr: &secondStderr, Getenv: getenvFrom(nil)}))
+	_, _ = io.WriteString(stdoutWriter, "first out")
+	_, _ = io.WriteString(stderrWriter, "first err")
+	_, _ = io.WriteString(StdoutWriter(), "second out")
+	_, _ = io.WriteString(StderrWriter(), "second err")
+
+	if got, want := firstStdout.String(), "first out"; got != want {
+		t.Fatalf("captured stdout = %q, want %q", got, want)
+	}
+	if got, want := firstStderr.String(), "first err"; got != want {
+		t.Fatalf("captured stderr = %q, want %q", got, want)
+	}
+	if got, want := secondStdout.String(), "second out"; got != want {
+		t.Fatalf("current stdout = %q, want %q", got, want)
+	}
+	if got, want := secondStderr.String(), "second err"; got != want {
+		t.Fatalf("current stderr = %q, want %q", got, want)
+	}
+}
+
+// TestConsoleOutputWriterWaitsForPromptOwnership verifies adapters honor the prompt session lock.
+func TestConsoleOutputWriterWaitsForPromptOwnership(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	console := New(Config{Stdout: &stdout, Getenv: getenvFrom(nil)})
+	console.sessionMu.Lock()
+	started := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		close(started)
+		_, _ = io.WriteString(console.StdoutWriter(), "after prompt")
+		close(done)
+	}()
+	<-started
+	for range 32 {
+		runtime.Gosched()
+	}
+	select {
+	case <-done:
+		console.sessionMu.Unlock()
+		t.Fatal("writer completed while a prompt owned the output session")
+	default:
+	}
+	console.sessionMu.Unlock()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for writer after prompt ownership ended")
+	}
+	if got, want := stdout.String(), "after prompt"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+}
+
+// TestConsoleOutputWriterPreservesLoaderRendering verifies durable adapter writes clear and restore a transient line.
+func TestConsoleOutputWriterPreservesLoaderRendering(t *testing.T) {
+	console, stdout, _, ticker := newLoaderTestConsole(true)
+	loader := console.Loader("working")
+	if err := loader.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	_ = waitForLoaderWrite(t, stdout)
+
+	count, err := io.WriteString(console.StdoutWriter(), "durable\n")
+	if count != len("durable\n") || err != nil {
+		t.Fatalf("Write() = (%d, %v), want (%d, nil)", count, err, len("durable\n"))
+	}
+	loader.Stop()
+	waitForLoaderTickerStop(t, ticker)
+
+	want := clearTransientLine + "1 working" +
+		clearTransientLine + "durable\n" + clearTransientLine + "1 working" +
+		clearTransientLine
+	if got := stdout.String(); got != want {
+		t.Fatalf("loader-coordinated stdout = %q, want %q", got, want)
 	}
 }
 
@@ -129,6 +309,68 @@ func TestConsoleSemanticMessagesUseExpectedMarksAndDestinations(t *testing.T) {
 	wantStderr := "x failed\nx failed 7\n"
 	if got := stderr.String(); got != wantStderr {
 		t.Fatalf("semantic stderr = %q, want %q", got, wantStderr)
+	}
+}
+
+// TestConsoleSemanticMessagesHangingIndentContinuationLines aligns multiline text beneath its first line.
+func TestConsoleSemanticMessagesHangingIndentContinuationLines(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	marks := ASCIIMarks()
+	marks.Info = "界"
+	console := New(Config{
+		Stdout:         &stdout,
+		ColorEnabled:   boolPointer(false),
+		UnicodeEnabled: boolPointer(true),
+		Marks:          &marks,
+		Getenv:         getenvFrom(nil),
+	})
+	console.Info("first\r\nsecond\rthird\n")
+
+	if got, want := stdout.String(), "界 first\n   second\n   third\n   \n"; got != want {
+		t.Fatalf("multiline semantic output = %q, want %q", got, want)
+	}
+}
+
+// TestConsoleSemanticMessagesBalanceMultilineStyles prevents caller metadata from coloring indentation or later output.
+func TestConsoleSemanticMessagesBalanceMultilineStyles(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	console := New(Config{
+		Stdout:         &stdout,
+		ColorEnabled:   boolPointer(false),
+		UnicodeEnabled: boolPointer(false),
+		Getenv:         getenvFrom(nil),
+	})
+	message := ColorRed + "first\r\nsecond" + ColorReset + "\x1b[20C\nthird"
+	console.Info(message)
+
+	want := "i " + ColorRed + "first" + ColorReset + "\n" +
+		"  " + ColorRed + "second" + ColorReset + "\n" +
+		"  third\n"
+	if got := stdout.String(); got != want {
+		t.Fatalf("styled multiline semantic output = %q, want %q", got, want)
+	}
+}
+
+// TestConsoleSemanticMessagesKeepSingleLineBytes preserves the established pass-through behavior for one-line messages.
+func TestConsoleSemanticMessagesKeepSingleLineBytes(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	console := New(Config{
+		Stdout:         &stdout,
+		ColorEnabled:   boolPointer(false),
+		UnicodeEnabled: boolPointer(false),
+		Getenv:         getenvFrom(nil),
+	})
+	message := "before\x1b[20Cafter\a"
+	console.Info(message)
+
+	if got, want := stdout.String(), "i "+message+"\n"; got != want {
+		t.Fatalf("single-line semantic output = %q, want %q", got, want)
 	}
 }
 

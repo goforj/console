@@ -6,6 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // ErrNonInteractive is returned when a prompt would read from a console that is not interactive.
@@ -24,6 +26,29 @@ func (c *Console) Ask(prompt string) (string, error) {
 // @group Prompts
 func (c *Console) AskDefault(prompt, defaultValue string) (string, error) {
 	return c.ask(prompt, &defaultValue)
+}
+
+// AskSecret prompts for one value without echoing input to the terminal.
+// Config.ReadSecret can provide compatible behavior for tests and custom terminals.
+// @group Prompts
+func (c *Console) AskSecret(prompt string) (string, error) {
+	if !c.IsInteractive() {
+		return "", ErrNonInteractive
+	}
+
+	c.inputMu.Lock()
+	defer c.inputMu.Unlock()
+
+	c.sessionMu.Lock()
+	defer c.sessionMu.Unlock()
+
+	c.transientMu.Lock()
+	c.promptActive = true
+	c.transientMu.Unlock()
+	c.writePrompt(prompt)
+	secret, err := c.readSecret()
+	c.resumeTransient(false)
+	return secret, err
 }
 
 // Confirm prompts until it reads yes or no, using defaultValue for an empty line.
@@ -107,6 +132,12 @@ func AskDefault(prompt, defaultValue string) (string, error) {
 	return Default().AskDefault(prompt, defaultValue)
 }
 
+// AskSecret prompts without echoing input through the default console.
+// @group Prompts
+func AskSecret(prompt string) (string, error) {
+	return Default().AskSecret(prompt)
+}
+
 // Confirm asks for confirmation through the default console.
 // @group Prompts
 func Confirm(prompt string, defaultValue bool) (bool, error) {
@@ -159,7 +190,7 @@ func (c *Console) promptLine(prompt string) (string, error) {
 // writePrompt renders one prompt without a newline because interactive terminals echo submitted input.
 func (c *Console) writePrompt(prompt string) {
 	pointer := c.Colorize(ColorCyan, singleLineLayoutText(c.marks.Pointer))
-	c.writeCoordinated(c.stdout, pointer+" "+singleLineLayoutText(prompt)+": ", true)
+	_, _ = c.writeCoordinated(c.stdout, pointer+" "+singleLineLayoutText(prompt)+": ", true)
 }
 
 // readPromptLine accepts a final unterminated value while preserving EOF as distinct from an empty line.
@@ -173,4 +204,17 @@ func (c *Console) readPromptLine() (string, bool, error) {
 		return line, false, nil
 	}
 	return "", false, err
+}
+
+// readTerminalSecret reads a password from a terminal-backed input without weakening to echoed input.
+func readTerminalSecret(reader io.Reader) (string, error) {
+	descriptor, ok := readerDescriptor(reader)
+	if !ok {
+		return "", errors.New("console: secret input requires a terminal reader or Config.ReadSecret")
+	}
+	value, err := term.ReadPassword(descriptor)
+	if err != nil {
+		return "", err
+	}
+	return string(value), nil
 }

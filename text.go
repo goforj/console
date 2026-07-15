@@ -72,6 +72,28 @@ func (c *Console) Truncate(value string, width int) string {
 	return Truncate(value, width)
 }
 
+// TruncateMiddle shortens each line of value to width terminal cells by replacing its center with an ellipsis.
+// Active SGR styles and OSC 8 hyperlinks are kept with the visible text on either side of the ellipsis.
+// Values less than one produce an empty string.
+// @group Text
+func TruncateMiddle(value string, width int) string {
+	if width < 1 {
+		return ""
+	}
+	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
+	for index, line := range lines {
+		lines[index] = truncateMiddleLine(line, width)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// TruncateMiddle shortens value through a Console instance using the public Unicode ellipsis contract.
+// Its behavior matches the package-level TruncateMiddle helper regardless of the console's layout policy.
+// @group Text
+func (c *Console) TruncateMiddle(value string, width int) string {
+	return TruncateMiddle(value, width)
+}
+
 // truncateWithTail shortens each line with a caller-selected one-cell truncation marker.
 func truncateWithTail(value string, width int, tail string) string {
 	if width < 1 {
@@ -132,6 +154,54 @@ func PadRight(value string, width int) string {
 // @group Text
 func (c *Console) PadRight(value string, width int) string {
 	return PadRight(value, width)
+}
+
+// PadLeft prepends spaces until every line reaches width terminal cells.
+// Lines already at or beyond width are unchanged. Tabs are expanded only on lines that need padding
+// because leading spaces otherwise change their terminal tab stops.
+// @group Text
+func PadLeft(value string, width int) string {
+	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
+	for index, line := range lines {
+		if VisibleWidth(line) >= width {
+			continue
+		}
+		line = ExpandTabs(line)
+		lines[index] = strings.Repeat(" ", width-VisibleWidth(line)) + line
+	}
+	return strings.Join(lines, "\n")
+}
+
+// PadLeft pads value on the left through a Console instance.
+// Its behavior matches the package-level PadLeft helper.
+// @group Text
+func (c *Console) PadLeft(value string, width int) string {
+	return PadLeft(value, width)
+}
+
+// PadCenter adds spaces around every line until it reaches width terminal cells.
+// Odd padding places the extra space on the right. Lines already at or beyond width are unchanged.
+// Tabs are expanded only on lines that need padding so their alignment remains stable.
+// @group Text
+func PadCenter(value string, width int) string {
+	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
+	for index, line := range lines {
+		if VisibleWidth(line) >= width {
+			continue
+		}
+		line = ExpandTabs(line)
+		padding := width - VisibleWidth(line)
+		left := padding / 2
+		lines[index] = strings.Repeat(" ", left) + line + strings.Repeat(" ", padding-left)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// PadCenter pads value on both sides through a Console instance.
+// Its behavior matches the package-level PadCenter helper.
+// @group Text
+func (c *Console) PadCenter(value string, width int) string {
+	return PadCenter(value, width)
 }
 
 // ExpandTabs replaces tabs with spaces at eight-cell stops on each line.
@@ -232,6 +302,7 @@ func singleLineLayoutText(value string) string {
 // displayToken contains one escape, rune, or logical newline and its layout properties.
 type displayToken struct {
 	raw        string
+	value      rune
 	width      int
 	space      bool
 	newline    bool
@@ -243,6 +314,7 @@ type displayToken struct {
 func displayTokens(value string) []displayToken {
 	tokens := make([]displayToken, 0, len(value))
 	joinNext := false
+	lastBaseToken := -1
 	regionalPending := false
 
 	for index := 0; index < len(value); {
@@ -259,20 +331,39 @@ func displayTokens(value string) []displayToken {
 		if runeValue == '\n' {
 			tokens = append(tokens, displayToken{raw: raw, newline: true})
 			joinNext = false
+			lastBaseToken = -1
 			regionalPending = false
 			continue
 		}
 		if runeValue == '\r' {
 			tokens = append(tokens, displayToken{raw: raw})
+			lastBaseToken = -1
 			continue
 		}
 		if runeValue == '\t' {
 			tokens = append(tokens, displayToken{raw: raw, space: true, dynamicTab: true})
+			lastBaseToken = -1
 			regionalPending = false
 			continue
 		}
+		if runeValue == '\ufe0f' {
+			if lastBaseToken >= 0 && tokens[lastBaseToken].width == 1 && !tokens[lastBaseToken].space {
+				tokens[lastBaseToken].width = 2
+			}
+			tokens = append(tokens, displayToken{raw: raw})
+			continue
+		}
+		if runeValue == '\ufe0e' {
+			if lastBaseToken >= 0 && tokens[lastBaseToken].width == 2 &&
+				isEmojiPresentationRune(tokens[lastBaseToken].value) {
+				tokens[lastBaseToken].width = 1
+			}
+			tokens = append(tokens, displayToken{raw: raw})
+			continue
+		}
 
-		width := runeCellWidth(runeValue)
+		baseWidth := runeCellWidth(runeValue)
+		width := baseWidth
 		if joinNext && width > 0 {
 			width = 0
 			joinNext = false
@@ -295,9 +386,13 @@ func displayTokens(value string) []displayToken {
 
 		tokens = append(tokens, displayToken{
 			raw:   raw,
+			value: runeValue,
 			width: width,
 			space: isBreakableSpace(runeValue),
 		})
+		if baseWidth > 0 {
+			lastBaseToken = len(tokens) - 1
+		}
 	}
 	return tokens
 }
@@ -380,14 +475,7 @@ func isRegionalIndicator(runeValue rune) bool {
 func isWideRune(runeValue rune) bool {
 	return runeValue >= 0x1100 && runeValue <= 0x115f ||
 		runeValue == 0x2329 || runeValue == 0x232a ||
-		runeValue >= 0x23e9 && runeValue <= 0x23ec ||
-		runeValue >= 0x23f0 && runeValue <= 0x23f0 ||
-		runeValue >= 0x23f3 && runeValue <= 0x23f3 ||
-		runeValue >= 0x25fd && runeValue <= 0x25fe ||
-		runeValue >= 0x2600 && runeValue <= 0x27bf ||
-		runeValue >= 0x2b1b && runeValue <= 0x2b1c ||
-		runeValue >= 0x2b50 && runeValue <= 0x2b50 ||
-		runeValue >= 0x2b55 && runeValue <= 0x2b55 ||
+		isEmojiPresentationRune(runeValue) ||
 		runeValue >= 0x2e80 && runeValue <= 0x303e ||
 		runeValue >= 0x3040 && runeValue <= 0xa4cf ||
 		runeValue >= 0xac00 && runeValue <= 0xd7a3 ||
@@ -398,6 +486,30 @@ func isWideRune(runeValue rune) bool {
 		runeValue >= 0xffe0 && runeValue <= 0xffe6 ||
 		runeValue >= 0x1f000 && runeValue <= 0x1faff ||
 		runeValue >= 0x20000 && runeValue <= 0x3fffd
+}
+
+// isEmojiPresentationRune covers symbols whose default Unicode presentation commonly occupies two terminal cells.
+func isEmojiPresentationRune(runeValue rune) bool {
+	return runeValue >= 0x231a && runeValue <= 0x231b ||
+		runeValue >= 0x23e9 && runeValue <= 0x23ec ||
+		runeValue == 0x23f0 || runeValue == 0x23f3 ||
+		runeValue >= 0x25fd && runeValue <= 0x25fe ||
+		runeValue >= 0x2614 && runeValue <= 0x2615 ||
+		runeValue >= 0x2648 && runeValue <= 0x2653 ||
+		runeValue == 0x267f || runeValue == 0x2693 || runeValue == 0x26a1 ||
+		runeValue >= 0x26aa && runeValue <= 0x26ab ||
+		runeValue >= 0x26bd && runeValue <= 0x26be ||
+		runeValue >= 0x26c4 && runeValue <= 0x26c5 ||
+		runeValue == 0x26ce || runeValue == 0x26d4 || runeValue == 0x26ea ||
+		runeValue >= 0x26f2 && runeValue <= 0x26f3 ||
+		runeValue == 0x26f5 || runeValue == 0x26fa || runeValue == 0x26fd ||
+		runeValue == 0x2705 || runeValue >= 0x270a && runeValue <= 0x270b ||
+		runeValue == 0x2728 || runeValue == 0x274c || runeValue == 0x274e ||
+		runeValue >= 0x2753 && runeValue <= 0x2755 || runeValue == 0x2757 ||
+		runeValue >= 0x2795 && runeValue <= 0x2797 ||
+		runeValue == 0x27b0 || runeValue == 0x27bf ||
+		runeValue >= 0x2b1b && runeValue <= 0x2b1c ||
+		runeValue == 0x2b50 || runeValue == 0x2b55
 }
 
 // tokenWidthAt resolves tab stops while leaving fixed-width tokens unchanged.
@@ -456,6 +568,107 @@ func truncateLine(line string, width int, tail string) string {
 	return output.String()
 }
 
+// truncateMiddleLine retains balanced presentation metadata around one unstyled ellipsis.
+func truncateMiddleLine(line string, width int) string {
+	if VisibleWidth(line) <= width {
+		return line
+	}
+	if width == 1 {
+		return "…"
+	}
+
+	tokens := displayTokens(line)
+	leftBudget := width / 2
+	prefixEnd, prefixWidth := truncatePrefixEnd(tokens, leftBudget)
+	suffixBudget := width - prefixWidth - 1
+	suffixStart := truncateSuffixStart(tokens, prefixEnd, prefixWidth+1, suffixBudget)
+
+	prefix := balanceANSILines([]string{joinDisplayTokens(tokens[:prefixEnd])})[0]
+	suffix := ""
+	if suffixStart < len(tokens) {
+		suffix = ansiContext(tokens[:suffixStart]) + joinDisplayTokens(tokens[suffixStart:])
+		suffix = balanceANSILines([]string{suffix})[0]
+	}
+	return prefix + "…" + suffix
+}
+
+// truncatePrefixEnd finds the longest leading token sequence that fits within a cell budget.
+func truncatePrefixEnd(tokens []displayToken, width int) (int, int) {
+	end := 0
+	current := 0
+	for index, token := range tokens {
+		if token.escape {
+			end = index + 1
+			continue
+		}
+		tokenWidth := tokenWidthAt(token, current)
+		if tokenWidth > 0 && current+tokenWidth > width {
+			break
+		}
+		current += tokenWidth
+		end = index + 1
+	}
+	if current == 0 {
+		return 0, 0
+	}
+	return end, current
+}
+
+// truncateSuffixStart finds the longest trailing token sequence that fits at its final terminal column.
+func truncateSuffixStart(tokens []displayToken, minimum, column, width int) int {
+	start := len(tokens)
+	var additions [tabWidth]int
+	for index := len(tokens) - 1; index >= minimum; index-- {
+		token := tokens[index]
+		if token.escape || token.width == 0 && !token.dynamicTab {
+			continue
+		}
+
+		var next [tabWidth]int
+		for residue := range tabWidth {
+			if token.dynamicTab {
+				added := tabWidth - residue
+				next[residue] = added + additions[0]
+				continue
+			}
+			next[residue] = token.width + additions[(residue+token.width)%tabWidth]
+		}
+		additions = next
+		if additions[column%tabWidth] > width {
+			break
+		}
+		start = index
+	}
+	return start
+}
+
+// ansiContext rebuilds the active presentation state at the end of tokens without visible content.
+func ansiContext(tokens []displayToken) string {
+	active := make([]string, 0)
+	hyperlink := ""
+	for _, token := range tokens {
+		if !token.escape {
+			continue
+		}
+		if target, ok := osc8Target(token.raw); ok {
+			if target == "" {
+				hyperlink = ""
+			} else {
+				hyperlink = token.raw
+			}
+			continue
+		}
+		resetsAll, hasStyle := sgrProperties(token.raw)
+		if resetsAll {
+			active = active[:0]
+		}
+		if hasStyle {
+			active = append(active, token.raw)
+		}
+	}
+	return hyperlink + strings.Join(active, "")
+}
+
 // wrapLines performs ANSI-aware word wrapping and preserves explicit blank lines.
 func wrapLines(value string, width int) []string {
 	tokens := displayTokens(value)
@@ -495,7 +708,7 @@ func wrapLines(value string, width int) []string {
 		}
 
 		tokenWidth := tokenWidthAt(token, lineWidth)
-		for lineWidth+tokenWidth > width && lineWidth > 0 {
+		for tokenWidth > 0 && lineWidth+tokenWidth > width && lineWidth > 0 {
 			breakAt := lastSpaceToken(line)
 			if breakAt >= 0 {
 				carry := trimLeadingSpaceTokens(append([]displayToken(nil), line[breakAt+1:]...))

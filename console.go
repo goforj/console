@@ -39,7 +39,7 @@ type Config struct {
 	InteractiveEnabled *bool
 	// UnicodeEnabled selects Unicode or ASCII presentation characters. Nil enables conservative environment detection.
 	UnicodeEnabled *bool
-	// AnimationsEnabled permits or disables loader animation. Even when true, stdout must be a terminal.
+	// AnimationsEnabled permits or disables transient loader and progress output. Even when true, stdout must be a terminal.
 	AnimationsEnabled *bool
 
 	// Width fixes the available output width. Values less than one use terminal detection and then an 80-column fallback.
@@ -57,6 +57,9 @@ type Config struct {
 	GetSize func(int) (width, height int, err error)
 	// Exit terminates the process for Fatal and Fatalf.
 	Exit func(int)
+	// ReadSecret reads one value without echoing it to the terminal.
+	// Nil uses terminal password input; tests and custom terminals can inject a reader.
+	ReadSecret func() (string, error)
 }
 
 // Marks contains the symbols used for messages, lists, selections, and loaders.
@@ -114,7 +117,7 @@ func ASCIIMarks() Marks {
 	}
 }
 
-// Console coordinates output policy, terminal capabilities, prompts, and loaders.
+// Console coordinates output policy, terminal capabilities, prompts, and transient displays.
 // A Console is safe for concurrent message writes and must be constructed with New.
 // @group Runtime
 type Console struct {
@@ -138,13 +141,14 @@ type Console struct {
 	isTerminal func(int) bool
 	getSize    func(int) (width, height int, err error)
 	exit       func(int)
+	readSecret func() (string, error)
 	newTicker  func(time.Duration) loaderTicker
 
 	inputMu      sync.Mutex
 	sessionMu    sync.RWMutex
 	outputMu     sync.Mutex
 	transientMu  sync.Mutex
-	active       *Loader
+	active       transientOwner
 	partialLine  bool
 	promptActive bool
 }
@@ -185,6 +189,12 @@ func New(config Config) *Console {
 	if exit == nil {
 		exit = os.Exit
 	}
+	readSecret := config.ReadSecret
+	if readSecret == nil {
+		readSecret = func() (string, error) {
+			return readTerminalSecret(stdin)
+		}
+	}
 
 	unicodeEnabled := detectUnicode(config.UnicodeEnabled, getenv)
 	marks := DefaultMarks()
@@ -218,6 +228,7 @@ func New(config Config) *Console {
 		isTerminal:         isTerminal,
 		getSize:            getSize,
 		exit:               exit,
+		readSecret:         readSecret,
 		newTicker:          newRealLoaderTicker,
 	}
 }
@@ -369,6 +380,9 @@ func (c *Console) shouldAnimate() bool {
 	if c.animationsEnabled != nil && !*c.animationsEnabled {
 		return false
 	}
+	if c.animationsEnabled == nil && strings.EqualFold(strings.TrimSpace(c.getenv("TERM")), "dumb") {
+		return false
+	}
 	descriptor, ok := writerDescriptor(c.stdout)
 	if !ok || !c.isTerminal(descriptor) {
 		return false
@@ -419,30 +433,35 @@ func (c *Console) write(writer io.Writer, value string, stdout bool) {
 		return
 	}
 	c.sessionMu.RLock()
-	c.writeCoordinated(writer, value, stdout)
+	_, _ = c.writeCoordinated(writer, value, stdout)
 	c.sessionMu.RUnlock()
 }
 
 // writeCoordinated serializes output and preserves an active transient line around durable writes.
 // The caller must hold either side of sessionMu so prompt ownership cannot change mid-write.
-func (c *Console) writeCoordinated(writer io.Writer, value string, stdout bool) {
+func (c *Console) writeCoordinated(writer io.Writer, value string, stdout bool) (int, error) {
 	c.transientMu.Lock()
 	c.outputMu.Lock()
 	if c.active != nil && !c.partialLine {
 		_, _ = io.WriteString(c.stdout, clearTransientLine)
 	}
-	_, _ = io.WriteString(writer, value)
-	if stdout || c.stderrSharesStdout {
-		c.partialLine = !strings.HasSuffix(value, "\n")
+	written, err := io.WriteString(writer, value)
+	visibleWritten := max(min(written, len(value)), 0)
+	if (stdout || c.stderrSharesStdout) && visibleWritten > 0 {
+		c.partialLine = !strings.HasSuffix(value[:visibleWritten], "\n")
 	}
 	if c.active != nil && !c.partialLine {
-		_, _ = io.WriteString(c.stdout, c.active.renderValue())
+		_, _ = io.WriteString(c.stdout, c.active.renderTransient())
 	}
 	c.outputMu.Unlock()
 	c.transientMu.Unlock()
+	if written != len(value) && err == nil {
+		err = io.ErrShortWrite
+	}
+	return written, err
 }
 
-// resumeTransient completes unterminated input and redraws a loader after an interactive prompt returns.
+// resumeTransient completes unterminated input and redraws a live display after an interactive prompt returns.
 func (c *Console) resumeTransient(lineTerminated bool) {
 	c.transientMu.Lock()
 	defer c.transientMu.Unlock()
@@ -459,5 +478,5 @@ func (c *Console) resumeTransient(lineTerminated bool) {
 	if c.active == nil {
 		return
 	}
-	_, _ = io.WriteString(c.stdout, c.active.renderValue())
+	_, _ = io.WriteString(c.stdout, c.active.renderTransient())
 }

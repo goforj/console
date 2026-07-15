@@ -65,6 +65,20 @@ func (c *Console) NewLine() {
 	c.write(c.stdout, "\n", true)
 }
 
+// StdoutWriter returns a writer coordinated with this console's prompts and transient displays.
+// The destination is captured when the adapter is constructed, and its write results are preserved.
+// @group Output
+func (c *Console) StdoutWriter() io.Writer {
+	return consoleOutputWriter{console: c, destination: c.stdout, stdout: true}
+}
+
+// StderrWriter returns a writer coordinated with this console's prompts and transient displays.
+// The destination is captured when the adapter is constructed, and its write results are preserved.
+// @group Output
+func (c *Console) StderrWriter() io.Writer {
+	return consoleOutputWriter{console: c, destination: c.stderr}
+}
+
 // ActionMark returns the action indicator.
 // @group Marks
 func (c *Console) ActionMark() string {
@@ -223,6 +237,16 @@ func Println(values ...any) { Default().Println(values...) }
 // @group Output
 func NewLine() { Default().NewLine() }
 
+// StdoutWriter returns a coordinated writer using a snapshot of the current default console.
+// Later calls to SetDefault do not retarget an existing writer.
+// @group Output
+func StdoutWriter() io.Writer { return Default().StdoutWriter() }
+
+// StderrWriter returns a coordinated writer using a snapshot of the current default console.
+// Later calls to SetDefault do not retarget an existing writer.
+// @group Output
+func StderrWriter() io.Writer { return Default().StderrWriter() }
+
 // ActionMark returns the default console's action indicator.
 // @group Marks
 func ActionMark() string { return Default().ActionMark() }
@@ -311,9 +335,35 @@ func Style(value string, styles ...string) string { return Default().Style(value
 // @group Styling
 func Colorize(color, value string) string { return Default().Colorize(color, value) }
 
-// message writes one complete semantic line under the console output lock.
+// consoleOutputWriter adapts coordinated console output to APIs that accept io.Writer.
+type consoleOutputWriter struct {
+	console     *Console
+	destination io.Writer
+	stdout      bool
+}
+
+// Write coordinates one caller write and preserves the configured destination's result.
+func (w consoleOutputWriter) Write(value []byte) (int, error) {
+	if len(value) == 0 {
+		return 0, nil
+	}
+	w.console.sessionMu.RLock()
+	written, err := w.console.writeCoordinated(w.destination, string(value), w.stdout)
+	w.console.sessionMu.RUnlock()
+	return written, err
+}
+
+// message writes one complete semantic message under the console output lock.
 func (c *Console) message(writer io.Writer, mark, message string, stdout bool) {
-	c.write(writer, mark+" "+message+"\n", stdout)
+	if !strings.ContainsAny(message, "\r\n") {
+		c.write(writer, mark+" "+message+"\n", stdout)
+		return
+	}
+
+	lines := strings.Split(sanitizeLayoutText(message, true), "\n")
+	lines = balanceANSILines(lines)
+	indent := strings.Repeat(" ", VisibleWidth(mark)+1)
+	c.write(writer, mark+" "+strings.Join(lines, "\n"+indent)+"\n", stdout)
 }
 
 // mark styles one semantic symbol according to the public stdout-oriented color contract.

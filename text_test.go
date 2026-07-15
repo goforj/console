@@ -69,6 +69,10 @@ func TestVisibleWidthCountsTerminalCells(t *testing.T) {
 		{name: "CJK", value: "界a", want: 3},
 		{name: "combining mark", value: "e\u0301", want: 1},
 		{name: "emoji ZWJ and modifier", value: "👩🏽‍💻", want: 2},
+		{name: "text presentation symbols", value: "✔✖⚠☀✈❤", want: 6},
+		{name: "emoji variation selectors", value: "✔️✖️⚠️☀️✈️❤️", want: 12},
+		{name: "default emoji presentation", value: "✅", want: 2},
+		{name: "text variation selector", value: "✅︎", want: 1},
 		{name: "regional indicator flag", value: "🇺🇳", want: 2},
 		{name: "tab stop", value: "a\tb", want: 9},
 		{name: "control characters", value: "a\rb", want: 2},
@@ -156,6 +160,64 @@ func TestTruncatePreservesOSCHyperlinkText(t *testing.T) {
 	}
 }
 
+// TestTruncateMiddleUsesVisibleCells retains useful context from both ends of every physical line.
+func TestTruncateMiddleUsesVisibleCells(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+		width int
+		want  string
+	}{
+		{name: "unchanged", value: "short", width: 5, want: "short"},
+		{name: "balanced sides", value: "abcdef", width: 5, want: "ab…ef"},
+		{name: "prefix receives odd cell", value: "abcdef", width: 4, want: "ab…f"},
+		{name: "ellipsis only", value: "abcdef", width: 1, want: "…"},
+		{name: "zero width", value: "abcdef", width: 0, want: ""},
+		{name: "negative width", value: "abcdef", width: -1, want: ""},
+		{name: "CJK", value: "界界界", width: 5, want: "界…界"},
+		{name: "combining", value: "e\u0301clair", width: 4, want: "e\u0301c…r"},
+		{name: "emoji", value: "👩🏽‍💻 developer", width: 7, want: "👩🏽‍💻 …per"},
+		{name: "each line", value: "abcdef\n界界界", width: 4, want: "ab…f\n界…"},
+		{name: "CRLF normalization", value: "abcdef\r\nxy", width: 4, want: "ab…f\nxy"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := TruncateMiddle(test.value, test.width); got != test.want {
+				t.Fatalf("TruncateMiddle(%q, %d) = %q, want %q", test.value, test.width, got, test.want)
+			}
+		})
+	}
+}
+
+// TestTruncateMiddleBalancesPresentationMetadata keeps the ellipsis outside styles and hyperlinks.
+func TestTruncateMiddleBalancesPresentationMetadata(t *testing.T) {
+	t.Parallel()
+
+	styled := ColorRed + "abcdef" + ColorReset
+	styledWant := ColorRed + "ab" + ColorReset + "…" + ColorRed + "f" + ColorReset
+	if got := TruncateMiddle(styled, 4); got != styledWant {
+		t.Fatalf("TruncateMiddle(styled) = %q, want %q", got, styledWant)
+	}
+
+	open := "\x1b]8;;https://example.test\a"
+	close := "\x1b]8;;\a"
+	linked := TruncateMiddle(open+"abcdef"+close, 4)
+	if got, want := StripANSI(linked), "ab…f"; got != want {
+		t.Fatalf("StripANSI(TruncateMiddle(linked)) = %q, want %q", got, want)
+	}
+	if !strings.Contains(linked, close+"…"+open) {
+		t.Fatalf("TruncateMiddle(linked) did not isolate its ellipsis: %q", linked)
+	}
+
+	if got, want := TruncateMiddle(ColorRed+"界界", 2), "…"; got != want {
+		t.Fatalf("TruncateMiddle(overwide styled text) = %q, want %q", got, want)
+	}
+}
+
 // TestWrapUsesVisibleCells wraps words and indivisible glyph clusters without counting ANSI bytes.
 func TestWrapUsesVisibleCells(t *testing.T) {
 	t.Parallel()
@@ -171,8 +233,12 @@ func TestWrapUsesVisibleCells(t *testing.T) {
 		{name: "trailing separator after full line", value: "hello ", width: 5, want: "hello"},
 		{name: "long word", value: "abcdefgh", width: 3, want: "abc\ndef\ngh"},
 		{name: "CJK", value: "界界界", width: 4, want: "界界\n界"},
+		{name: "overwide CJK", value: "界界", width: 1, want: "界\n界"},
+		{name: "overwide combining", value: "界\u0301界\u0301", width: 1, want: "界\u0301\n界\u0301"},
+		{name: "overwide variation selector", value: "✈️✈️", width: 1, want: "✈️\n✈️"},
 		{name: "combining", value: "e\u0301e\u0301e\u0301", width: 2, want: "e\u0301e\u0301\ne\u0301"},
 		{name: "emoji ZWJ", value: "👩🏽‍💻👩🏽‍💻", width: 2, want: "👩🏽‍💻\n👩🏽‍💻"},
+		{name: "overwide emoji ZWJ", value: "👩🏽‍💻👩🏽‍💻", width: 1, want: "👩🏽‍💻\n👩🏽‍💻"},
 		{name: "leading and trailing spaces", value: "  alpha  ", width: 10, want: "alpha"},
 		{name: "non-breaking space is retained", value: " alpha\u00a0 ", width: 10, want: "alpha\u00a0"},
 		{name: "nonpositive width", value: "alpha beta", width: 0, want: "alpha beta"},
@@ -281,6 +347,65 @@ func TestPadRightUsesVisibleCells(t *testing.T) {
 	}
 }
 
+// TestPadLeftUsesVisibleCells aligns plain, styled, wide, tabbed, and multiline values from the right.
+func TestPadLeftUsesVisibleCells(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+		width int
+		want  string
+	}{
+		{name: "plain", value: "ab", width: 4, want: "  ab"},
+		{name: "already wide", value: "abcdef", width: 4, want: "abcdef"},
+		{name: "styled", value: ColorRed + "ab" + ColorReset, width: 4, want: "  " + ColorRed + "ab" + ColorReset},
+		{name: "CJK", value: "界", width: 4, want: "  界"},
+		{name: "tab expansion", value: "a\t", width: 10, want: "  a       "},
+		{name: "multiline", value: "a\n界", width: 3, want: "  a\n 界"},
+		{name: "CRLF normalization", value: "a\r\nb", width: 2, want: " a\n b"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := PadLeft(test.value, test.width); got != test.want {
+				t.Fatalf("PadLeft(%q, %d) = %q, want %q", test.value, test.width, got, test.want)
+			}
+		})
+	}
+}
+
+// TestPadCenterUsesVisibleCells centers plain, styled, wide, tabbed, and multiline values deterministically.
+func TestPadCenterUsesVisibleCells(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value string
+		width int
+		want  string
+	}{
+		{name: "even padding", value: "ab", width: 6, want: "  ab  "},
+		{name: "odd padding", value: "ab", width: 5, want: " ab  "},
+		{name: "already wide", value: "abcdef", width: 4, want: "abcdef"},
+		{name: "styled", value: ColorRed + "ab" + ColorReset, width: 4, want: " " + ColorRed + "ab" + ColorReset + " "},
+		{name: "CJK", value: "界", width: 5, want: " 界  "},
+		{name: "tab expansion", value: "a\t", width: 11, want: " a       " + "  "},
+		{name: "multiline", value: "a\n界", width: 4, want: " a  \n 界 "},
+		{name: "CRLF normalization", value: "a\r\nb", width: 3, want: " a \n b "},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := PadCenter(test.value, test.width); got != test.want {
+				t.Fatalf("PadCenter(%q, %d) = %q, want %q", test.value, test.width, got, test.want)
+			}
+		})
+	}
+}
+
 // TestExpandTabsUsesLineRelativeCellStops verifies ANSI and wide glyphs affect tab expansion correctly.
 func TestExpandTabsUsesLineRelativeCellStops(t *testing.T) {
 	t.Parallel()
@@ -360,11 +485,20 @@ func TestConsoleTextHelpersMatchPackageFunctions(t *testing.T) {
 	if got, want := console.Truncate(styled, 6), Truncate(styled, 6); got != want {
 		t.Fatalf("Console.Truncate() = %q, want %q", got, want)
 	}
+	if got, want := console.TruncateMiddle(styled, 6), TruncateMiddle(styled, 6); got != want {
+		t.Fatalf("Console.TruncateMiddle() = %q, want %q", got, want)
+	}
 	if got, want := console.Wrap(styled, 5), Wrap(styled, 5); got != want {
 		t.Fatalf("Console.Wrap() = %q, want %q", got, want)
 	}
 	if got, want := console.PadRight(styled, 14), PadRight(styled, 14); got != want {
 		t.Fatalf("Console.PadRight() = %q, want %q", got, want)
+	}
+	if got, want := console.PadLeft(styled, 14), PadLeft(styled, 14); got != want {
+		t.Fatalf("Console.PadLeft() = %q, want %q", got, want)
+	}
+	if got, want := console.PadCenter(styled, 14), PadCenter(styled, 14); got != want {
+		t.Fatalf("Console.PadCenter() = %q, want %q", got, want)
 	}
 	if got, want := console.ExpandTabs("a\tb"), ExpandTabs("a\tb"); got != want {
 		t.Fatalf("Console.ExpandTabs() = %q, want %q", got, want)

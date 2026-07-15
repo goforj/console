@@ -427,15 +427,18 @@ func TestAnimationDetectionRequiresTerminalOutput(t *testing.T) {
 	tests := []struct {
 		name       string
 		override   *bool
+		env        map[string]string
 		descriptor bool
 		terminal   bool
 		want       bool
 	}{
 		{name: "automatic terminal", descriptor: true, terminal: true, want: true},
+		{name: "automatic dumb terminal", env: map[string]string{"TERM": " DUMB "}, descriptor: true, terminal: true, want: false},
 		{name: "automatic redirected descriptor", descriptor: true, want: false},
 		{name: "automatic writer without descriptor", terminal: true, want: false},
 		{name: "explicit disabled terminal", override: boolPointer(false), descriptor: true, terminal: true, want: false},
 		{name: "explicit enabled terminal", override: boolPointer(true), descriptor: true, terminal: true, want: true},
+		{name: "explicit enabled dumb terminal", override: boolPointer(true), env: map[string]string{"TERM": "dumb"}, descriptor: true, terminal: true, want: true},
 		{name: "explicit enabled redirected descriptor", override: boolPointer(true), descriptor: true, want: false},
 	}
 
@@ -451,6 +454,7 @@ func TestAnimationDetectionRequiresTerminalOutput(t *testing.T) {
 			console := New(Config{
 				Stdout:            stdout,
 				AnimationsEnabled: test.override,
+				Getenv:            getenvFrom(test.env),
 				IsTerminal: func(descriptor int) bool {
 					if descriptor != 41 {
 						t.Fatalf("IsTerminal() descriptor = %d, want 41", descriptor)

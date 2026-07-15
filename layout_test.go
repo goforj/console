@@ -335,3 +335,141 @@ func TestEmptyLayoutCollectionsWriteNothing(t *testing.T) {
 		t.Fatalf("empty layout helpers wrote %q, want no output", got)
 	}
 }
+
+// TestLayoutRenderersReturnComposableText verifies rendering has no output side effects or trailing newline.
+func TestLayoutRenderersReturnComposableText(t *testing.T) {
+	t.Parallel()
+
+	console, output := newLayoutTestConsole(20, true, false)
+	tests := []struct {
+		name   string
+		render func() string
+		want   string
+	}{
+		{name: "section", render: func() string { return console.RenderSection("Build") }, want: "◇ Build"},
+		{name: "rule", render: func() string { return console.RenderRule("State") }, want: "── State ───────────"},
+		{name: "key values", render: func() string { return console.RenderKeyValues(KV("Mode", "test")) }, want: "Mode  test"},
+		{
+			name: "key value map",
+			render: func() string {
+				return console.RenderKeyValueMap(map[string]any{"z": "last", "a": "first"})
+			},
+			want: "a  first\nz  last",
+		},
+		{name: "list", render: func() string { return console.RenderList("alpha", "beta") }, want: "• alpha\n• beta"},
+		{
+			name:   "numbered list",
+			render: func() string { return console.RenderNumberedList("alpha", "beta") },
+			want:   "1. alpha\n2. beta",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.render(); got != test.want {
+				t.Fatalf("renderer returned %q, want %q", got, test.want)
+			}
+			if strings.HasSuffix(test.render(), "\n") {
+				t.Fatalf("renderer returned a trailing newline: %q", test.render())
+			}
+		})
+	}
+	if got := output.String(); got != "" {
+		t.Fatalf("renderers wrote %q, want no output", got)
+	}
+}
+
+// TestLayoutPrintersDelegateToRenderers verifies each printer adds one newline to its rendered form.
+func TestLayoutPrintersDelegateToRenderers(t *testing.T) {
+	t.Parallel()
+
+	console, output := newLayoutTestConsole(20, true, false)
+	tests := []struct {
+		name     string
+		rendered string
+		print    func()
+	}{
+		{name: "section", rendered: console.RenderSection("Build"), print: func() { console.Section("Build") }},
+		{name: "rule", rendered: console.RenderRule("State"), print: func() { console.Rule("State") }},
+		{
+			name:     "key values",
+			rendered: console.RenderKeyValues(KV("Mode", "test")),
+			print:    func() { console.KeyValues(KV("Mode", "test")) },
+		},
+		{
+			name:     "key value map",
+			rendered: console.RenderKeyValueMap(map[string]any{"Mode": "test"}),
+			print:    func() { console.KeyValueMap(map[string]any{"Mode": "test"}) },
+		},
+		{name: "list", rendered: console.RenderList("alpha"), print: func() { console.List("alpha") }},
+		{
+			name:     "numbered list",
+			rendered: console.RenderNumberedList("alpha"),
+			print:    func() { console.NumberedList("alpha") },
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			output.Reset()
+			test.print()
+			if got, want := output.String(), test.rendered+"\n"; got != want {
+				t.Fatalf("printer wrote %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestEmptyLayoutRenderersStayEmpty verifies composition helpers do not manufacture blank rows.
+func TestEmptyLayoutRenderersStayEmpty(t *testing.T) {
+	t.Parallel()
+
+	console, _ := newLayoutTestConsole(20, true, false)
+	tests := map[string]string{
+		"key values":    console.RenderKeyValues(),
+		"key value map": console.RenderKeyValueMap(nil),
+		"list":          console.RenderList(),
+		"numbered list": console.RenderNumberedList(),
+	}
+	for name, got := range tests {
+		if got != "" {
+			t.Errorf("%s renderer returned %q, want empty", name, got)
+		}
+	}
+}
+
+// TestPackageRenderHelpersUseDefaultPresentation verifies composable globals honor the active console without writing.
+func TestPackageRenderHelpersUseDefaultPresentation(t *testing.T) {
+	previous := Default()
+	t.Cleanup(func() { SetDefault(previous) })
+
+	configured, output := newLayoutTestConsole(12, false, false)
+	SetDefault(configured)
+	tests := []struct {
+		name string
+		got  string
+		want string
+	}{
+		{name: "section", got: RenderSection("Build"), want: "> Build"},
+		{name: "rule", got: RenderRule("State"), want: "-- State ---"},
+		{name: "key values", got: RenderKeyValues(KV("Mode", "test")), want: "Mode  test"},
+		{name: "key value map", got: RenderKeyValueMap(map[string]any{"B": 2, "A": 1}), want: "A  1\nB  2"},
+		{name: "list", got: RenderList("alpha"), want: "- alpha"},
+		{name: "numbered list", got: RenderNumberedList("alpha"), want: "1. alpha"},
+		{name: "tree", got: RenderTree(Node("root", Node("child"))), want: "root\n`-- child"},
+	}
+	for _, test := range tests {
+		if test.got != test.want {
+			t.Errorf("%s helper = %q, want %q", test.name, test.got, test.want)
+		}
+	}
+	if got := output.String(); got != "" {
+		t.Fatalf("render helpers wrote %q, want no output", got)
+	}
+	Tree(Node("root", Node("child")))
+	if got, want := output.String(), "root\n`-- child\n"; got != want {
+		t.Fatalf("Tree() wrote %q, want %q", got, want)
+	}
+}

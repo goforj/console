@@ -1,18 +1,9 @@
 package console
 
 import (
-	"errors"
-	"io"
-	"strings"
 	"sync"
 	"time"
 )
-
-const clearTransientLine = "\r\x1b[2K"
-
-// ErrLoaderActive is returned when another animated loader already owns the console's transient line.
-// @group Loaders
-var ErrLoaderActive = errors.New("console: another loader is already active")
 
 // Loader presents one transient activity line on terminals and stable semantic lines in redirected output.
 // A Loader is concurrency-safe, single-use, and must be constructed with Console.Loader or NewLoader;
@@ -68,7 +59,7 @@ func newRealLoaderTicker(interval time.Duration) loaderTicker {
 // Loader constructs a loader without starting it.
 // @group Loaders
 func (c *Console) Loader(message string) *Loader {
-	return &Loader{console: c, message: normalizeLoaderMessage(message)}
+	return &Loader{console: c, message: normalizeTransientMessage(message)}
 }
 
 // NewLoader constructs a loader using a snapshot of the current default console.
@@ -79,7 +70,7 @@ func NewLoader(message string) *Loader {
 }
 
 // Start begins the loader and is harmless when called more than once.
-// Animated loaders can return ErrLoaderActive when another loader owns the same console.
+// Animated loaders can return ErrTransientActive when another live display owns the same console.
 // @group Loaders
 func (l *Loader) Start() error {
 	l.mu.Lock()
@@ -90,7 +81,7 @@ func (l *Loader) Start() error {
 
 	l.dynamic = l.console.shouldAnimate() && len(l.console.marks.SpinnerFrames) > 0
 	if l.dynamic {
-		if err := l.console.acquireLoader(l); err != nil {
+		if err := l.console.acquireTransient(l); err != nil {
 			l.mu.Unlock()
 			return err
 		}
@@ -99,7 +90,7 @@ func (l *Loader) Start() error {
 		l.state = loaderRunning
 		go l.animate(l.stop, l.done)
 		l.mu.Unlock()
-		l.console.renderLoader(l)
+		l.console.renderTransient(l)
 		return nil
 	}
 
@@ -119,11 +110,11 @@ func (l *Loader) Update(message string) {
 		l.mu.Unlock()
 		return
 	}
-	l.message = normalizeLoaderMessage(message)
+	l.message = normalizeTransientMessage(message)
 	dynamic := l.state == loaderRunning && l.dynamic
 	l.mu.Unlock()
 	if dynamic {
-		l.console.renderLoader(l)
+		l.console.renderTransient(l)
 	}
 }
 
@@ -178,7 +169,7 @@ func (l *Loader) finish(outcome loaderFinish, message string) {
 	if message == "" {
 		message = l.message
 	} else {
-		message = normalizeLoaderMessage(message)
+		message = normalizeTransientMessage(message)
 	}
 	l.state = loaderFinished
 	l.mu.Unlock()
@@ -186,7 +177,7 @@ func (l *Loader) finish(outcome loaderFinish, message string) {
 	if dynamic {
 		close(stop)
 		<-done
-		l.console.releaseLoader(l, outcome != loaderFinishStop)
+		l.console.releaseTransient(l, outcome != loaderFinishStop)
 	}
 
 	switch outcome {
@@ -214,7 +205,7 @@ func (l *Loader) animate(stop <-chan struct{}, done chan<- struct{}) {
 			running := l.state == loaderRunning
 			l.mu.Unlock()
 			if running {
-				l.console.renderLoader(l)
+				l.console.renderTransient(l)
 			}
 		case <-stop:
 			return
@@ -222,8 +213,8 @@ func (l *Loader) animate(stop <-chan struct{}, done chan<- struct{}) {
 	}
 }
 
-// renderValue snapshots a complete carriage-return frame while the console owns output coordination.
-func (l *Loader) renderValue() string {
+// renderTransient snapshots a complete carriage-return frame while the console owns output coordination.
+func (l *Loader) renderTransient() string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.state != loaderRunning || !l.dynamic || len(l.console.marks.SpinnerFrames) == 0 {
@@ -234,51 +225,4 @@ func (l *Loader) renderValue() string {
 	messageWidth := max(l.console.Width()-VisibleWidth(frame)-1, 1)
 	message := l.console.truncate(l.message, messageWidth)
 	return clearTransientLine + l.console.Colorize(ColorGreen, frame) + " " + message
-}
-
-// acquireLoader grants one loader exclusive ownership of the transient line.
-func (c *Console) acquireLoader(loader *Loader) error {
-	c.transientMu.Lock()
-	defer c.transientMu.Unlock()
-	if c.active != nil && c.active != loader {
-		return ErrLoaderActive
-	}
-	c.active = loader
-	return nil
-}
-
-// renderLoader redraws loader only while it still owns the console's transient line.
-func (c *Console) renderLoader(loader *Loader) {
-	c.transientMu.Lock()
-	defer c.transientMu.Unlock()
-	if c.active != loader || c.partialLine {
-		return
-	}
-	c.outputMu.Lock()
-	_, _ = io.WriteString(c.stdout, loader.renderValue())
-	c.outputMu.Unlock()
-}
-
-// releaseLoader clears the transient line and relinquishes ownership after the animation goroutine exits.
-func (c *Console) releaseLoader(loader *Loader, durableOutcome bool) {
-	c.transientMu.Lock()
-	defer c.transientMu.Unlock()
-	if c.active != loader {
-		return
-	}
-	c.outputMu.Lock()
-	if c.partialLine && durableOutcome && !c.promptActive {
-		_, _ = io.WriteString(c.stdout, "\n")
-		c.partialLine = false
-	} else if !c.partialLine {
-		_, _ = io.WriteString(c.stdout, clearTransientLine)
-	}
-	c.active = nil
-	c.outputMu.Unlock()
-}
-
-// normalizeLoaderMessage keeps the transient renderer to one physical line.
-func normalizeLoaderMessage(message string) string {
-	message = sanitizeLayoutText(message, false)
-	return strings.Join(strings.Fields(message), " ")
 }
