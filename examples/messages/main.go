@@ -1,4 +1,4 @@
-// Command messages demonstrates semantic output with an isolated console.
+// Command messages demonstrates semantic output through package-level helpers.
 package main
 
 import (
@@ -11,14 +11,18 @@ import (
 func main() {
 	color := false
 	unicode := true
-	cli := console.New(console.Config{
+	console.SetDefault(console.New(console.Config{
 		Stdout:         os.Stdout,
 		Stderr:         os.Stderr,
 		ColorEnabled:   &color,
 		UnicodeEnabled: &unicode,
-	})
+	}))
 
-	cli.Action("Building application")
-	cli.Infof("Environment: %s", "development")
-	cli.Success("Application ready")
+	console.Action("Building application")
+	console.Infof("Environment: %s", "development")
+	console.Success("Application ready")
+
+	// · Building application
+	// · Environment: development
+	// ✔ Application ready
 }

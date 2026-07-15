@@ -44,19 +44,19 @@ func main() {
 // ✔ Application ready
 ```
 
-Common operations are available both as package-level helpers and as methods on `*Console`. Package helpers use the process-wide default console; construct an instance when a command needs isolated writers or deterministic behavior. Loader construction is the intentional naming exception: use `console.NewLoader("message")` with the default console or `cli.Loader("message")` with an instance.
+Common operations are available both as package-level helpers and as methods on `*Console`. The examples lead with the concise package helpers, which use the process-wide default console. Libraries and applications that need isolated writers or independent runtime policy should construct an instance instead. Loader construction is the intentional naming exception: the package helper is `console.NewLoader("message")`, while an instance uses `(*Console).Loader("message")`.
 
 ```go
 var output bytes.Buffer
 color := false
 
-cli := console.New(console.Config{
+console.SetDefault(console.New(console.Config{
 	Stdout:       &output,
 	Stderr:       &output,
 	ColorEnabled: &color,
-})
+}))
 
-cli.Warn("Configuration is incomplete")
+console.Warn("Configuration is incomplete")
 fmt.Print(output.String())
 
 // ! Configuration is incomplete
@@ -68,12 +68,12 @@ Set `ColorEnabled` explicitly when output policy should ignore environment and T
 var output bytes.Buffer
 forceColor := true
 unicode := true
-colored := console.New(console.Config{
+console.SetDefault(console.New(console.Config{
 	Stdout:         &output,
 	ColorEnabled:   &forceColor,
 	UnicodeEnabled: &unicode,
-})
-colored.Success("ANSI styling is forced")
+}))
+console.Success("ANSI styling is forced")
 fmt.Printf("%q\n", output.String())
 
 // "\x1b[32m✔\x1b[0m ANSI styling is forced\n"
@@ -105,12 +105,12 @@ Layout helpers write through a `Console`; their `RenderBox` and `RenderTable` co
 ```go
 color := false
 unicode := true
-cli := console.New(console.Config{
+console.SetDefault(console.New(console.Config{
 	ColorEnabled:   &color,
 	UnicodeEnabled: &unicode,
-})
+}))
 
-fmt.Println(cli.RenderBox(
+fmt.Println(console.RenderBox(
 	"All services healthy.",
 	console.BoxTitle("Status"),
 	console.BoxWidth(26),
@@ -132,16 +132,16 @@ var output bytes.Buffer
 color := false
 animations := false
 unicode := true
-cli := console.New(console.Config{
+console.SetDefault(console.New(console.Config{
 	Stdout:            &output,
 	ColorEnabled:      &color,
 	UnicodeEnabled:    &unicode,
 	AnimationsEnabled: &animations,
-})
+}))
 
-loader := cli.Loader("Downloading modules")
+loader := console.NewLoader("Downloading modules")
 if err := loader.Start(); err != nil {
-	cli.Error(err.Error())
+	console.Error(err.Error())
 	return
 }
 
@@ -166,15 +166,15 @@ var output bytes.Buffer
 interactive := true
 color := false
 unicode := true
-cli := console.New(console.Config{
+console.SetDefault(console.New(console.Config{
 	Stdin:              strings.NewReader("yes\n"),
 	Stdout:             &output,
 	InteractiveEnabled: &interactive,
 	ColorEnabled:       &color,
 	UnicodeEnabled:     &unicode,
-})
+}))
 
-confirmed, err := cli.Confirm("Deploy now", false)
+confirmed, err := console.Confirm("Deploy now", false)
 fmt.Printf("%q\n", output.String())
 fmt.Println(confirmed, err)
 
@@ -249,16 +249,18 @@ func main() {
 	var stderr bytes.Buffer
 	color := false
 	unicode := true
-	cli := console.New(console.Config{
+	previous := console.Default()
+	defer console.SetDefault(previous)
+	console.SetDefault(console.New(console.Config{
 		Stdout:         &stdout,
 		Stderr:         &stderr,
 		ColorEnabled:   &color,
 		UnicodeEnabled: &unicode,
-	})
+	}))
 
-	cli.Action("Building application")
-	cli.Success("Application ready")
-	cli.Error("Port already in use")
+	console.Action("Building application")
+	console.Success("Application ready")
+	console.Error("Port already in use")
 
 	fmt.Print(stdout.String())
 	fmt.Print(stderr.String())
@@ -285,16 +287,18 @@ func main() {
 	var output bytes.Buffer
 	color := false
 	unicode := true
-	cli := console.New(console.Config{
+	previous := console.Default()
+	defer console.SetDefault(previous)
+	console.SetDefault(console.New(console.Config{
 		Stdout:         &output,
 		ColorEnabled:   &color,
 		UnicodeEnabled: &unicode,
 		Width:          32,
-	})
+	}))
 
-	cli.List("api ready", "worker ready")
-	cli.Box("All services healthy.", console.BoxTitle("Status"), console.BoxWidth(26))
-	cli.Table(
+	console.List("api ready", "worker ready")
+	console.Box("All services healthy.", console.BoxTitle("Status"), console.BoxWidth(26))
+	console.Table(
 		[]string{"Service", "State"},
 		[][]string{{"api", "ready"}, {"worker", "ready"}},
 	)
@@ -332,14 +336,16 @@ func main() {
 	color := false
 	animations := false
 	unicode := true
-	cli := console.New(console.Config{
+	previous := console.Default()
+	defer console.SetDefault(previous)
+	console.SetDefault(console.New(console.Config{
 		Stdout:            &output,
 		ColorEnabled:      &color,
 		UnicodeEnabled:    &unicode,
 		AnimationsEnabled: &animations,
-	})
+	}))
 
-	loader := cli.Loader("Downloading modules")
+	loader := console.NewLoader("Downloading modules")
 	_ = loader.Start()
 	loader.Success("Modules ready")
 
@@ -368,15 +374,17 @@ func main() {
 	interactive := true
 	color := false
 	unicode := true
-	cli := console.New(console.Config{
+	previous := console.Default()
+	defer console.SetDefault(previous)
+	console.SetDefault(console.New(console.Config{
 		Stdin:              strings.NewReader("yes\n"),
 		Stdout:             &output,
 		InteractiveEnabled: &interactive,
 		ColorEnabled:       &color,
 		UnicodeEnabled:     &unicode,
-	})
+	}))
 
-	confirmed, err := cli.Confirm("Deploy now", false)
+	confirmed, err := console.Confirm("Deploy now", false)
 	fmt.Printf("%q\n", output.String())
 	fmt.Println(confirmed, err)
 }

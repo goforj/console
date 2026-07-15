@@ -12,19 +12,22 @@ func main() {
 	color := false
 	animations := false
 	unicode := true
-	cli := console.New(console.Config{
+	console.SetDefault(console.New(console.Config{
 		Stdout:            os.Stdout,
 		Stderr:            os.Stderr,
 		ColorEnabled:      &color,
 		UnicodeEnabled:    &unicode,
 		AnimationsEnabled: &animations,
-	})
+	}))
 
-	loader := cli.Loader("Downloading modules")
+	loader := console.NewLoader("Downloading modules")
 	if err := loader.Start(); err != nil {
-		cli.Error(err.Error())
+		console.Error(err.Error())
 		return
 	}
 	loader.Update("Verifying modules")
 	loader.Success("Modules ready")
+
+	// · Downloading modules
+	// ✔ Modules ready
 }
