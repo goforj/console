@@ -14,6 +14,25 @@ var errInvalidProgressTotal = errors.New("console: progress total must be greate
 // Progress presents determinate work as one transient terminal line and stable semantic lines in redirected output.
 // A Progress is concurrency-safe, single-use, and must be constructed with Console.Progress or NewProgress;
 // the first call to Complete, Fail, or Stop wins.
+//
+// Example: track determinate work to completion
+//
+//	animations := false
+//	color := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		ColorEnabled:      &color,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	var progress *console.Progress = console.NewProgress(2, "Deploying services")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Deploying services
+//	progress.Add(2)
+//	progress.Complete("Services deployed")
+//	// ✔ Services deployed
 type Progress struct {
 	console *Console
 
@@ -46,12 +65,46 @@ func (c *Console) Progress(total int, message string) *Progress {
 
 // NewProgress constructs a progress display using a snapshot of the current default console.
 // It does not start the display.
+//
+// Example:
+//
+//	animations := false
+//	color := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		ColorEnabled:      &color,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(2, "Deploying services")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Deploying services
+//	progress.Add(2)
+//	progress.Complete("Services deployed")
+//	// ✔ Services deployed
 func NewProgress(total int, message string) *Progress {
 	return Default().Progress(total, message)
 }
 
 // Start begins the progress display and is harmless when called more than once.
 // Live terminal displays can return ErrTransientActive when another display owns the console.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(3, "Running checks")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Running checks
+//	progress.Stop()
 func (p *Progress) Start() error {
 	p.mu.Lock()
 	if p.state != progressReady {
@@ -84,6 +137,23 @@ func (p *Progress) Start() error {
 
 // Set replaces the completed amount and clamps it between zero and the total.
 // Reaching the total does not complete the display; Complete records the durable outcome.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(100, "Uploading release")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Uploading release
+//	progress.Set(100)
+//	progress.Complete("Release uploaded")
+//	// ✔ Release uploaded
 func (p *Progress) Set(current int) {
 	p.mu.Lock()
 	if p.state == progressFinished {
@@ -99,6 +169,24 @@ func (p *Progress) Set(current int) {
 }
 
 // Add changes the completed amount by delta and clamps it between zero and the total.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(2, "Deploying services")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Deploying services
+//	progress.Add(1)
+//	progress.Add(1)
+//	progress.Complete("Services deployed")
+//	// ✔ Services deployed
 func (p *Progress) Add(delta int) {
 	p.mu.Lock()
 	if p.state == progressFinished {
@@ -126,6 +214,23 @@ func (p *Progress) Add(delta int) {
 // Step replaces the completed amount and message in one atomic progress update.
 // The amount is clamped between zero and the total, and updates after a terminal
 // operation are ignored.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(2, "Deploying API")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Deploying API
+//	progress.Step(1, "Deploying worker")
+//	progress.Complete("")
+//	// ✔ Deploying worker
 func (p *Progress) Step(current int, message string) {
 	p.mu.Lock()
 	if p.state == progressFinished {
@@ -143,6 +248,23 @@ func (p *Progress) Step(current int, message string) {
 
 // Update changes the progress message and immediately redraws a live terminal display.
 // Updates after a terminal operation are ignored.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(2, "Deploying API")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Deploying API
+//	progress.Update("Deploying worker")
+//	progress.Complete("")
+//	// ✔ Deploying worker
 func (p *Progress) Update(message string) {
 	p.mu.Lock()
 	if p.state == progressFinished {
@@ -159,17 +281,64 @@ func (p *Progress) Update(message string) {
 
 // Complete fills and finishes the display with a success message.
 // An empty message reuses the current progress message.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(1, "Packaging release")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Packaging release
+//	progress.Complete("Release ready")
+//	// ✔ Release ready
 func (p *Progress) Complete(message string) {
 	p.finish(progressFinishComplete, message)
 }
 
 // Fail finishes the display with an error message on stderr.
 // An empty message reuses the current progress message.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(1, "Publishing release")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Publishing release
+//	progress.Fail("Registry refused upload")
+//	// ✖ Registry refused upload
 func (p *Progress) Fail(message string) {
 	p.finish(progressFinishFail, message)
 }
 
 // Stop removes the transient display without printing a completion message.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	progress := console.NewProgress(1, "Checking release")
+//	if err := progress.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Checking release
+//	progress.Stop()
 func (p *Progress) Stop() {
 	p.finish(progressFinishStop, "")
 }

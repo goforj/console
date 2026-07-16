@@ -12,6 +12,11 @@ const tabWidth = 8
 
 // StripANSI removes complete ANSI CSI, OSC, and ESC sequences from value.
 // Incomplete escape sequences are retained so malformed input is not silently discarded.
+//
+// Example: remove terminal styling
+//
+//	fmt.Println(console.StripANSI(console.ColorRed + "failed" + console.ColorReset))
+//	// failed
 func StripANSI(value string) string {
 	var output strings.Builder
 	for index := 0; index < len(value); {
@@ -35,6 +40,11 @@ func (c *Console) StripANSI(value string) string {
 // VisibleWidth returns the largest terminal-cell width among value's lines.
 // ANSI escapes and combining characters occupy no cells, tabs advance to an eight-cell stop,
 // and common East Asian and emoji runes occupy two cells.
+//
+// Example: measure terminal cells
+//
+//	fmt.Println(console.VisibleWidth("Go界"))
+//	// 4
 func VisibleWidth(value string) int {
 	maximum := 0
 	current := 0
@@ -58,6 +68,11 @@ func (c *Console) VisibleWidth(value string) int {
 // Truncate shortens each line of value to width terminal cells and uses an ellipsis when content is removed.
 // Active SGR styles and OSC 8 hyperlinks are closed before the ellipsis.
 // Values less than one produce an empty string.
+//
+// Example: shorten text
+//
+//	fmt.Println(console.Truncate("deployment", 7))
+//	// deploy…
 func Truncate(value string, width int) string {
 	return truncateWithTail(value, width, "…")
 }
@@ -71,6 +86,11 @@ func (c *Console) Truncate(value string, width int) string {
 // TruncateMiddle shortens each line of value to width terminal cells by replacing its center with an ellipsis.
 // Active SGR styles and OSC 8 hyperlinks are kept with the visible text on either side of the ellipsis.
 // Values less than one produce an empty string.
+//
+// Example: preserve both ends
+//
+//	fmt.Println(console.TruncateMiddle("abcdefghij", 7))
+//	// abc…hij
 func TruncateMiddle(value string, width int) string {
 	if width < 1 {
 		return ""
@@ -113,6 +133,11 @@ func (c *Console) truncate(value string, width int) string {
 // at each line boundary so they cannot bleed into surrounding layout. Long unbroken words wrap at cell boundaries.
 // Breakable whitespace at the beginning or end of a resulting line is removed.
 // Values less than one are returned unchanged.
+//
+// Example: wrap text to a terminal width
+//
+//	fmt.Printf("%q\n", console.Wrap("ship the release", 8))
+//	// "ship the\nrelease"
 func Wrap(value string, width int) string {
 	if width < 1 || value == "" {
 		return value
@@ -129,6 +154,11 @@ func (c *Console) Wrap(value string, width int) string {
 
 // PadRight appends spaces until every line reaches width terminal cells.
 // Lines already at or beyond width are unchanged.
+//
+// Example: right-pad text
+//
+//	fmt.Printf("%q\n", console.PadRight("go", 5))
+//	// "go   "
 func PadRight(value string, width int) string {
 	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
 	for index, line := range lines {
@@ -149,6 +179,11 @@ func (c *Console) PadRight(value string, width int) string {
 // PadLeft prepends spaces until every line reaches width terminal cells.
 // Lines already at or beyond width are unchanged. Tabs are expanded only on lines that need padding
 // because leading spaces otherwise change their terminal tab stops.
+//
+// Example: left-pad text
+//
+//	fmt.Printf("%q\n", console.PadLeft("go", 5))
+//	// "   go"
 func PadLeft(value string, width int) string {
 	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
 	for index, line := range lines {
@@ -170,6 +205,11 @@ func (c *Console) PadLeft(value string, width int) string {
 // PadCenter adds spaces around every line until it reaches width terminal cells.
 // Odd padding places the extra space on the right. Lines already at or beyond width are unchanged.
 // Tabs are expanded only on lines that need padding so their alignment remains stable.
+//
+// Example: center text
+//
+//	fmt.Printf("%q\n", console.PadCenter("go", 6))
+//	// "  go  "
 func PadCenter(value string, width int) string {
 	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
 	for index, line := range lines {
@@ -192,6 +232,11 @@ func (c *Console) PadCenter(value string, width int) string {
 
 // ExpandTabs replaces tabs with spaces at eight-cell stops on each line.
 // ANSI escape sequences do not affect tab positions.
+//
+// Example: expand terminal tab stops
+//
+//	fmt.Printf("%q\n", console.ExpandTabs("a\tb"))
+//	// "a       b"
 func ExpandTabs(value string) string {
 	if !strings.Contains(value, "\t") {
 		return value
@@ -224,6 +269,11 @@ func (c *Console) ExpandTabs(value string) string {
 
 // Indent prefixes every line in value with prefix.
 // Empty input remains empty.
+//
+// Example: indent multiline text
+//
+//	fmt.Printf("%q\n", console.Indent("one\ntwo", "> "))
+//	// "> one\n> two"
 func Indent(value, prefix string) string {
 	if value == "" {
 		return ""

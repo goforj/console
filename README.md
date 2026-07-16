@@ -237,24 +237,1700 @@ Debug output is enabled by a nonzero `FORJ_DEBUG`, `APP_DEBUG`, or `DEBUG` value
 
 ## API index
 
-The complete API documentation is available on [pkg.go.dev](https://pkg.go.dev/github.com/goforj/console). Package helpers come first; `Console` methods provide the isolated equivalent, while loader and progress lifecycle methods remain on their returned values.
+Complete declaration documentation is available on [pkg.go.dev](https://pkg.go.dev/github.com/goforj/console). The links below open source-comment examples in this README. Package declarations and global helpers come first; `Console` methods provide the isolated equivalent, while loader and progress lifecycle methods remain on their returned values.
 
 | Group | Package API | Instance and lifecycle API |
 | --- | --- | --- |
-| Boxes | <a id="box"></a>[Box](https://pkg.go.dev/github.com/goforj/console#Box) · <a id="boxcolor"></a>[BoxColor](https://pkg.go.dev/github.com/goforj/console#BoxColor) · <a id="boxoption"></a>[BoxOption](https://pkg.go.dev/github.com/goforj/console#BoxOption) · <a id="boxpadding"></a>[BoxPadding](https://pkg.go.dev/github.com/goforj/console#BoxPadding) · <a id="boxtitle"></a>[BoxTitle](https://pkg.go.dev/github.com/goforj/console#BoxTitle) · <a id="boxwidth"></a>[BoxWidth](https://pkg.go.dev/github.com/goforj/console#BoxWidth) · <a id="renderbox"></a>[RenderBox](https://pkg.go.dev/github.com/goforj/console#RenderBox) | <a id="console-box"></a>[Console.Box](https://pkg.go.dev/github.com/goforj/console#Console.Box) · <a id="console-renderbox"></a>[Console.RenderBox](https://pkg.go.dev/github.com/goforj/console#Console.RenderBox) |
-| Layout | <a id="kv"></a>[KV](https://pkg.go.dev/github.com/goforj/console#KV) · <a id="keyvalue"></a>[KeyValue](https://pkg.go.dev/github.com/goforj/console#KeyValue) · <a id="keyvaluemap"></a>[KeyValueMap](https://pkg.go.dev/github.com/goforj/console#KeyValueMap) · <a id="keyvalues"></a>[KeyValues](https://pkg.go.dev/github.com/goforj/console#KeyValues) · <a id="list"></a>[List](https://pkg.go.dev/github.com/goforj/console#List) · <a id="numberedlist"></a>[NumberedList](https://pkg.go.dev/github.com/goforj/console#NumberedList) · <a id="renderkeyvaluemap"></a>[RenderKeyValueMap](https://pkg.go.dev/github.com/goforj/console#RenderKeyValueMap) · <a id="renderkeyvalues"></a>[RenderKeyValues](https://pkg.go.dev/github.com/goforj/console#RenderKeyValues) · <a id="renderlist"></a>[RenderList](https://pkg.go.dev/github.com/goforj/console#RenderList) · <a id="rendernumberedlist"></a>[RenderNumberedList](https://pkg.go.dev/github.com/goforj/console#RenderNumberedList) · <a id="renderrule"></a>[RenderRule](https://pkg.go.dev/github.com/goforj/console#RenderRule) · <a id="rendersection"></a>[RenderSection](https://pkg.go.dev/github.com/goforj/console#RenderSection) · <a id="rule"></a>[Rule](https://pkg.go.dev/github.com/goforj/console#Rule) · <a id="section"></a>[Section](https://pkg.go.dev/github.com/goforj/console#Section) | <a id="console-keyvaluemap"></a>[Console.KeyValueMap](https://pkg.go.dev/github.com/goforj/console#Console.KeyValueMap) · <a id="console-keyvalues"></a>[Console.KeyValues](https://pkg.go.dev/github.com/goforj/console#Console.KeyValues) · <a id="console-list"></a>[Console.List](https://pkg.go.dev/github.com/goforj/console#Console.List) · <a id="console-numberedlist"></a>[Console.NumberedList](https://pkg.go.dev/github.com/goforj/console#Console.NumberedList) · <a id="console-renderkeyvaluemap"></a>[Console.RenderKeyValueMap](https://pkg.go.dev/github.com/goforj/console#Console.RenderKeyValueMap) · <a id="console-renderkeyvalues"></a>[Console.RenderKeyValues](https://pkg.go.dev/github.com/goforj/console#Console.RenderKeyValues) · <a id="console-renderlist"></a>[Console.RenderList](https://pkg.go.dev/github.com/goforj/console#Console.RenderList) · <a id="console-rendernumberedlist"></a>[Console.RenderNumberedList](https://pkg.go.dev/github.com/goforj/console#Console.RenderNumberedList) · <a id="console-renderrule"></a>[Console.RenderRule](https://pkg.go.dev/github.com/goforj/console#Console.RenderRule) · <a id="console-rendersection"></a>[Console.RenderSection](https://pkg.go.dev/github.com/goforj/console#Console.RenderSection) · <a id="console-rule"></a>[Console.Rule](https://pkg.go.dev/github.com/goforj/console#Console.Rule) · <a id="console-section"></a>[Console.Section](https://pkg.go.dev/github.com/goforj/console#Console.Section) |
-| Loaders | <a id="loader"></a>[Loader](https://pkg.go.dev/github.com/goforj/console#Loader) · <a id="newloader"></a>[NewLoader](https://pkg.go.dev/github.com/goforj/console#NewLoader) | <a id="console-loader"></a>[Console.Loader](https://pkg.go.dev/github.com/goforj/console#Console.Loader) · <a id="loader-fail"></a>[Loader.Fail](https://pkg.go.dev/github.com/goforj/console#Loader.Fail) · <a id="loader-start"></a>[Loader.Start](https://pkg.go.dev/github.com/goforj/console#Loader.Start) · <a id="loader-stop"></a>[Loader.Stop](https://pkg.go.dev/github.com/goforj/console#Loader.Stop) · <a id="loader-success"></a>[Loader.Success](https://pkg.go.dev/github.com/goforj/console#Loader.Success) · <a id="loader-update"></a>[Loader.Update](https://pkg.go.dev/github.com/goforj/console#Loader.Update) · <a id="loader-warn"></a>[Loader.Warn](https://pkg.go.dev/github.com/goforj/console#Loader.Warn) |
-| Marks | <a id="actionmark"></a>[ActionMark](https://pkg.go.dev/github.com/goforj/console#ActionMark) · <a id="debugmark"></a>[DebugMark](https://pkg.go.dev/github.com/goforj/console#DebugMark) · <a id="errormark"></a>[ErrorMark](https://pkg.go.dev/github.com/goforj/console#ErrorMark) · <a id="infomark"></a>[InfoMark](https://pkg.go.dev/github.com/goforj/console#InfoMark) · <a id="successmark"></a>[SuccessMark](https://pkg.go.dev/github.com/goforj/console#SuccessMark) · <a id="warnmark"></a>[WarnMark](https://pkg.go.dev/github.com/goforj/console#WarnMark) | <a id="console-actionmark"></a>[Console.ActionMark](https://pkg.go.dev/github.com/goforj/console#Console.ActionMark) · <a id="console-debugmark"></a>[Console.DebugMark](https://pkg.go.dev/github.com/goforj/console#Console.DebugMark) · <a id="console-errormark"></a>[Console.ErrorMark](https://pkg.go.dev/github.com/goforj/console#Console.ErrorMark) · <a id="console-infomark"></a>[Console.InfoMark](https://pkg.go.dev/github.com/goforj/console#Console.InfoMark) · <a id="console-successmark"></a>[Console.SuccessMark](https://pkg.go.dev/github.com/goforj/console#Console.SuccessMark) · <a id="console-warnmark"></a>[Console.WarnMark](https://pkg.go.dev/github.com/goforj/console#Console.WarnMark) |
-| Messages | <a id="action"></a>[Action](https://pkg.go.dev/github.com/goforj/console#Action) · <a id="actionf"></a>[Actionf](https://pkg.go.dev/github.com/goforj/console#Actionf) · <a id="debug"></a>[Debug](https://pkg.go.dev/github.com/goforj/console#Debug) · <a id="debugf"></a>[Debugf](https://pkg.go.dev/github.com/goforj/console#Debugf) · <a id="error"></a>[Error](https://pkg.go.dev/github.com/goforj/console#Error) · <a id="errorf"></a>[Errorf](https://pkg.go.dev/github.com/goforj/console#Errorf) · <a id="fatal"></a>[Fatal](https://pkg.go.dev/github.com/goforj/console#Fatal) · <a id="fatalf"></a>[Fatalf](https://pkg.go.dev/github.com/goforj/console#Fatalf) · <a id="info"></a>[Info](https://pkg.go.dev/github.com/goforj/console#Info) · <a id="infof"></a>[Infof](https://pkg.go.dev/github.com/goforj/console#Infof) · <a id="success"></a>[Success](https://pkg.go.dev/github.com/goforj/console#Success) · <a id="successf"></a>[Successf](https://pkg.go.dev/github.com/goforj/console#Successf) · <a id="warn"></a>[Warn](https://pkg.go.dev/github.com/goforj/console#Warn) · <a id="warnf"></a>[Warnf](https://pkg.go.dev/github.com/goforj/console#Warnf) | <a id="console-action"></a>[Console.Action](https://pkg.go.dev/github.com/goforj/console#Console.Action) · <a id="console-actionf"></a>[Console.Actionf](https://pkg.go.dev/github.com/goforj/console#Console.Actionf) · <a id="console-debug"></a>[Console.Debug](https://pkg.go.dev/github.com/goforj/console#Console.Debug) · <a id="console-debugf"></a>[Console.Debugf](https://pkg.go.dev/github.com/goforj/console#Console.Debugf) · <a id="console-error"></a>[Console.Error](https://pkg.go.dev/github.com/goforj/console#Console.Error) · <a id="console-errorf"></a>[Console.Errorf](https://pkg.go.dev/github.com/goforj/console#Console.Errorf) · <a id="console-fatal"></a>[Console.Fatal](https://pkg.go.dev/github.com/goforj/console#Console.Fatal) · <a id="console-fatalf"></a>[Console.Fatalf](https://pkg.go.dev/github.com/goforj/console#Console.Fatalf) · <a id="console-info"></a>[Console.Info](https://pkg.go.dev/github.com/goforj/console#Console.Info) · <a id="console-infof"></a>[Console.Infof](https://pkg.go.dev/github.com/goforj/console#Console.Infof) · <a id="console-success"></a>[Console.Success](https://pkg.go.dev/github.com/goforj/console#Console.Success) · <a id="console-successf"></a>[Console.Successf](https://pkg.go.dev/github.com/goforj/console#Console.Successf) · <a id="console-warn"></a>[Console.Warn](https://pkg.go.dev/github.com/goforj/console#Console.Warn) · <a id="console-warnf"></a>[Console.Warnf](https://pkg.go.dev/github.com/goforj/console#Console.Warnf) |
-| Output | <a id="newline"></a>[NewLine](https://pkg.go.dev/github.com/goforj/console#NewLine) · <a id="print"></a>[Print](https://pkg.go.dev/github.com/goforj/console#Print) · <a id="printf"></a>[Printf](https://pkg.go.dev/github.com/goforj/console#Printf) · <a id="println"></a>[Println](https://pkg.go.dev/github.com/goforj/console#Println) · <a id="stderrwriter"></a>[StderrWriter](https://pkg.go.dev/github.com/goforj/console#StderrWriter) · <a id="stdoutwriter"></a>[StdoutWriter](https://pkg.go.dev/github.com/goforj/console#StdoutWriter) | <a id="console-newline"></a>[Console.NewLine](https://pkg.go.dev/github.com/goforj/console#Console.NewLine) · <a id="console-print"></a>[Console.Print](https://pkg.go.dev/github.com/goforj/console#Console.Print) · <a id="console-printf"></a>[Console.Printf](https://pkg.go.dev/github.com/goforj/console#Console.Printf) · <a id="console-println"></a>[Console.Println](https://pkg.go.dev/github.com/goforj/console#Console.Println) · <a id="console-stderrwriter"></a>[Console.StderrWriter](https://pkg.go.dev/github.com/goforj/console#Console.StderrWriter) · <a id="console-stdoutwriter"></a>[Console.StdoutWriter](https://pkg.go.dev/github.com/goforj/console#Console.StdoutWriter) |
-| Progress | <a id="newprogress"></a>[NewProgress](https://pkg.go.dev/github.com/goforj/console#NewProgress) · <a id="progress"></a>[Progress](https://pkg.go.dev/github.com/goforj/console#Progress) | <a id="console-progress"></a>[Console.Progress](https://pkg.go.dev/github.com/goforj/console#Console.Progress) · <a id="progress-add"></a>[Progress.Add](https://pkg.go.dev/github.com/goforj/console#Progress.Add) · <a id="progress-complete"></a>[Progress.Complete](https://pkg.go.dev/github.com/goforj/console#Progress.Complete) · <a id="progress-fail"></a>[Progress.Fail](https://pkg.go.dev/github.com/goforj/console#Progress.Fail) · <a id="progress-set"></a>[Progress.Set](https://pkg.go.dev/github.com/goforj/console#Progress.Set) · <a id="progress-start"></a>[Progress.Start](https://pkg.go.dev/github.com/goforj/console#Progress.Start) · <a id="progress-step"></a>[Progress.Step](https://pkg.go.dev/github.com/goforj/console#Progress.Step) · <a id="progress-stop"></a>[Progress.Stop](https://pkg.go.dev/github.com/goforj/console#Progress.Stop) · <a id="progress-update"></a>[Progress.Update](https://pkg.go.dev/github.com/goforj/console#Progress.Update) |
-| Prompts | <a id="ask"></a>[Ask](https://pkg.go.dev/github.com/goforj/console#Ask) · <a id="askdefault"></a>[AskDefault](https://pkg.go.dev/github.com/goforj/console#AskDefault) · <a id="asksecret"></a>[AskSecret](https://pkg.go.dev/github.com/goforj/console#AskSecret) · <a id="choose"></a>[Choose](https://pkg.go.dev/github.com/goforj/console#Choose) · <a id="chooseindex"></a>[ChooseIndex](https://pkg.go.dev/github.com/goforj/console#ChooseIndex) · <a id="confirm"></a>[Confirm](https://pkg.go.dev/github.com/goforj/console#Confirm) · <a id="errnoninteractive"></a>[ErrNonInteractive](https://pkg.go.dev/github.com/goforj/console#ErrNonInteractive) | <a id="console-ask"></a>[Console.Ask](https://pkg.go.dev/github.com/goforj/console#Console.Ask) · <a id="console-askdefault"></a>[Console.AskDefault](https://pkg.go.dev/github.com/goforj/console#Console.AskDefault) · <a id="console-asksecret"></a>[Console.AskSecret](https://pkg.go.dev/github.com/goforj/console#Console.AskSecret) · <a id="console-choose"></a>[Console.Choose](https://pkg.go.dev/github.com/goforj/console#Console.Choose) · <a id="console-chooseindex"></a>[Console.ChooseIndex](https://pkg.go.dev/github.com/goforj/console#Console.ChooseIndex) · <a id="console-confirm"></a>[Console.Confirm](https://pkg.go.dev/github.com/goforj/console#Console.Confirm) |
-| Runtime | <a id="asciimarks"></a>[ASCIIMarks](https://pkg.go.dev/github.com/goforj/console#ASCIIMarks) · <a id="config"></a>[Config](https://pkg.go.dev/github.com/goforj/console#Config) · <a id="console"></a>[Console](https://pkg.go.dev/github.com/goforj/console#Console) · <a id="default"></a>[Default](https://pkg.go.dev/github.com/goforj/console#Default) · <a id="defaultmarks"></a>[DefaultMarks](https://pkg.go.dev/github.com/goforj/console#DefaultMarks) · <a id="marks"></a>[Marks](https://pkg.go.dev/github.com/goforj/console#Marks) · <a id="new"></a>[New](https://pkg.go.dev/github.com/goforj/console#New) · <a id="setdefault"></a>[SetDefault](https://pkg.go.dev/github.com/goforj/console#SetDefault) | — |
-| Styling | <a id="colorblack"></a>[ColorBlack](https://pkg.go.dev/github.com/goforj/console#ColorBlack) · <a id="colorblue"></a>[ColorBlue](https://pkg.go.dev/github.com/goforj/console#ColorBlue) · <a id="colorboldgreen"></a>[ColorBoldGreen](https://pkg.go.dev/github.com/goforj/console#ColorBoldGreen) · <a id="colorboldwhite"></a>[ColorBoldWhite](https://pkg.go.dev/github.com/goforj/console#ColorBoldWhite) · <a id="colorcyan"></a>[ColorCyan](https://pkg.go.dev/github.com/goforj/console#ColorCyan) · <a id="colorgray"></a>[ColorGray](https://pkg.go.dev/github.com/goforj/console#ColorGray) · <a id="colorgreen"></a>[ColorGreen](https://pkg.go.dev/github.com/goforj/console#ColorGreen) · <a id="colormagenta"></a>[ColorMagenta](https://pkg.go.dev/github.com/goforj/console#ColorMagenta) · <a id="colorred"></a>[ColorRed](https://pkg.go.dev/github.com/goforj/console#ColorRed) · <a id="colorreset"></a>[ColorReset](https://pkg.go.dev/github.com/goforj/console#ColorReset) · <a id="colorwhite"></a>[ColorWhite](https://pkg.go.dev/github.com/goforj/console#ColorWhite) · <a id="coloryellow"></a>[ColorYellow](https://pkg.go.dev/github.com/goforj/console#ColorYellow) · <a id="colorize"></a>[Colorize](https://pkg.go.dev/github.com/goforj/console#Colorize) · <a id="style"></a>[Style](https://pkg.go.dev/github.com/goforj/console#Style) · <a id="stylebold"></a>[StyleBold](https://pkg.go.dev/github.com/goforj/console#StyleBold) · <a id="styledim"></a>[StyleDim](https://pkg.go.dev/github.com/goforj/console#StyleDim) · <a id="styleunderline"></a>[StyleUnderline](https://pkg.go.dev/github.com/goforj/console#StyleUnderline) | <a id="console-colorize"></a>[Console.Colorize](https://pkg.go.dev/github.com/goforj/console#Console.Colorize) · <a id="console-style"></a>[Console.Style](https://pkg.go.dev/github.com/goforj/console#Console.Style) |
-| Tables | <a id="rendertable"></a>[RenderTable](https://pkg.go.dev/github.com/goforj/console#RenderTable) · <a id="table"></a>[Table](https://pkg.go.dev/github.com/goforj/console#Table) · <a id="tablecenteralign"></a>[TableCenterAlign](https://pkg.go.dev/github.com/goforj/console#TableCenterAlign) · <a id="tablecompact"></a>[TableCompact](https://pkg.go.dev/github.com/goforj/console#TableCompact) · <a id="tableoption"></a>[TableOption](https://pkg.go.dev/github.com/goforj/console#TableOption) · <a id="tablerightalign"></a>[TableRightAlign](https://pkg.go.dev/github.com/goforj/console#TableRightAlign) · <a id="tablewidths"></a>[TableWidths](https://pkg.go.dev/github.com/goforj/console#TableWidths) | <a id="console-rendertable"></a>[Console.RenderTable](https://pkg.go.dev/github.com/goforj/console#Console.RenderTable) · <a id="console-table"></a>[Console.Table](https://pkg.go.dev/github.com/goforj/console#Console.Table) |
-| Terminal | <a id="errtransientactive"></a>[ErrTransientActive](https://pkg.go.dev/github.com/goforj/console#ErrTransientActive) · <a id="isinteractive"></a>[IsInteractive](https://pkg.go.dev/github.com/goforj/console#IsInteractive) · <a id="supportscolor"></a>[SupportsColor](https://pkg.go.dev/github.com/goforj/console#SupportsColor) · <a id="supportsunicode"></a>[SupportsUnicode](https://pkg.go.dev/github.com/goforj/console#SupportsUnicode) · <a id="width"></a>[Width](https://pkg.go.dev/github.com/goforj/console#Width) | <a id="console-isinteractive"></a>[Console.IsInteractive](https://pkg.go.dev/github.com/goforj/console#Console.IsInteractive) · <a id="console-supportscolor"></a>[Console.SupportsColor](https://pkg.go.dev/github.com/goforj/console#Console.SupportsColor) · <a id="console-supportsunicode"></a>[Console.SupportsUnicode](https://pkg.go.dev/github.com/goforj/console#Console.SupportsUnicode) · <a id="console-width"></a>[Console.Width](https://pkg.go.dev/github.com/goforj/console#Console.Width) |
-| Text | <a id="expandtabs"></a>[ExpandTabs](https://pkg.go.dev/github.com/goforj/console#ExpandTabs) · <a id="indent"></a>[Indent](https://pkg.go.dev/github.com/goforj/console#Indent) · <a id="padcenter"></a>[PadCenter](https://pkg.go.dev/github.com/goforj/console#PadCenter) · <a id="padleft"></a>[PadLeft](https://pkg.go.dev/github.com/goforj/console#PadLeft) · <a id="padright"></a>[PadRight](https://pkg.go.dev/github.com/goforj/console#PadRight) · <a id="stripansi"></a>[StripANSI](https://pkg.go.dev/github.com/goforj/console#StripANSI) · <a id="truncate"></a>[Truncate](https://pkg.go.dev/github.com/goforj/console#Truncate) · <a id="truncatemiddle"></a>[TruncateMiddle](https://pkg.go.dev/github.com/goforj/console#TruncateMiddle) · <a id="visiblewidth"></a>[VisibleWidth](https://pkg.go.dev/github.com/goforj/console#VisibleWidth) · <a id="wrap"></a>[Wrap](https://pkg.go.dev/github.com/goforj/console#Wrap) | <a id="console-expandtabs"></a>[Console.ExpandTabs](https://pkg.go.dev/github.com/goforj/console#Console.ExpandTabs) · <a id="console-indent"></a>[Console.Indent](https://pkg.go.dev/github.com/goforj/console#Console.Indent) · <a id="console-padcenter"></a>[Console.PadCenter](https://pkg.go.dev/github.com/goforj/console#Console.PadCenter) · <a id="console-padleft"></a>[Console.PadLeft](https://pkg.go.dev/github.com/goforj/console#Console.PadLeft) · <a id="console-padright"></a>[Console.PadRight](https://pkg.go.dev/github.com/goforj/console#Console.PadRight) · <a id="console-stripansi"></a>[Console.StripANSI](https://pkg.go.dev/github.com/goforj/console#Console.StripANSI) · <a id="console-truncate"></a>[Console.Truncate](https://pkg.go.dev/github.com/goforj/console#Console.Truncate) · <a id="console-truncatemiddle"></a>[Console.TruncateMiddle](https://pkg.go.dev/github.com/goforj/console#Console.TruncateMiddle) · <a id="console-visiblewidth"></a>[Console.VisibleWidth](https://pkg.go.dev/github.com/goforj/console#Console.VisibleWidth) · <a id="console-wrap"></a>[Console.Wrap](https://pkg.go.dev/github.com/goforj/console#Console.Wrap) |
-| Trees | <a id="node"></a>[Node](https://pkg.go.dev/github.com/goforj/console#Node) · <a id="rendertree"></a>[RenderTree](https://pkg.go.dev/github.com/goforj/console#RenderTree) · <a id="tree"></a>[Tree](https://pkg.go.dev/github.com/goforj/console#Tree) · <a id="treenode"></a>[TreeNode](https://pkg.go.dev/github.com/goforj/console#TreeNode) | <a id="console-rendertree"></a>[Console.RenderTree](https://pkg.go.dev/github.com/goforj/console#Console.RenderTree) · <a id="console-tree"></a>[Console.Tree](https://pkg.go.dev/github.com/goforj/console#Console.Tree) |
+| Boxes | [Box](#box) · [BoxColor](#boxcolor) · [BoxOption](#boxoption) · [BoxPadding](#boxpadding) · [BoxTitle](#boxtitle) · [BoxWidth](#boxwidth) · [RenderBox](#renderbox) | [Console.Box](#box) · [Console.RenderBox](#renderbox) |
+| Layout | [KV](#kv) · [KeyValue](#keyvalue) · [KeyValueMap](#keyvaluemap) · [KeyValues](#keyvalues) · [List](#list) · [NumberedList](#numberedlist) · [RenderKeyValueMap](#renderkeyvaluemap) · [RenderKeyValues](#renderkeyvalues) · [RenderList](#renderlist) · [RenderNumberedList](#rendernumberedlist) · [RenderRule](#renderrule) · [RenderSection](#rendersection) · [Rule](#rule) · [Section](#section) | [Console.KeyValueMap](#keyvaluemap) · [Console.KeyValues](#keyvalues) · [Console.List](#list) · [Console.NumberedList](#numberedlist) · [Console.RenderKeyValueMap](#renderkeyvaluemap) · [Console.RenderKeyValues](#renderkeyvalues) · [Console.RenderList](#renderlist) · [Console.RenderNumberedList](#rendernumberedlist) · [Console.RenderRule](#renderrule) · [Console.RenderSection](#rendersection) · [Console.Rule](#rule) · [Console.Section](#section) |
+| Loaders | [Loader](#loader) · [NewLoader](#newloader) | [Console.Loader](#newloader) · [Loader.Fail](#loader-fail) · [Loader.Start](#loader-start) · [Loader.Stop](#loader-stop) · [Loader.Success](#loader-success) · [Loader.Update](#loader-update) · [Loader.Warn](#loader-warn) |
+| Marks | [ActionMark](#actionmark) · [DebugMark](#debugmark) · [ErrorMark](#errormark) · [InfoMark](#infomark) · [SuccessMark](#successmark) · [WarnMark](#warnmark) | [Console.ActionMark](#actionmark) · [Console.DebugMark](#debugmark) · [Console.ErrorMark](#errormark) · [Console.InfoMark](#infomark) · [Console.SuccessMark](#successmark) · [Console.WarnMark](#warnmark) |
+| Messages | [Action](#action) · [Actionf](#actionf) · [Debug](#debug) · [Debugf](#debugf) · [Error](#error) · [Errorf](#errorf) · [Fatal](#fatal) · [Fatalf](#fatalf) · [Info](#info) · [Infof](#infof) · [Success](#success) · [Successf](#successf) · [Warn](#warn) · [Warnf](#warnf) | [Console.Action](#action) · [Console.Actionf](#actionf) · [Console.Debug](#debug) · [Console.Debugf](#debugf) · [Console.Error](#error) · [Console.Errorf](#errorf) · [Console.Fatal](#fatal) · [Console.Fatalf](#fatalf) · [Console.Info](#info) · [Console.Infof](#infof) · [Console.Success](#success) · [Console.Successf](#successf) · [Console.Warn](#warn) · [Console.Warnf](#warnf) |
+| Output | [NewLine](#newline) · [Print](#print) · [Printf](#printf) · [Println](#println) · [StderrWriter](#stderrwriter) · [StdoutWriter](#stdoutwriter) | [Console.NewLine](#newline) · [Console.Print](#print) · [Console.Printf](#printf) · [Console.Println](#println) · [Console.StderrWriter](#stderrwriter) · [Console.StdoutWriter](#stdoutwriter) |
+| Progress | [NewProgress](#newprogress) · [Progress](#progress) | [Console.Progress](#newprogress) · [Progress.Add](#progress-add) · [Progress.Complete](#progress-complete) · [Progress.Fail](#progress-fail) · [Progress.Set](#progress-set) · [Progress.Start](#progress-start) · [Progress.Step](#progress-step) · [Progress.Stop](#progress-stop) · [Progress.Update](#progress-update) |
+| Prompts | [Ask](#ask) · [AskDefault](#askdefault) · [AskSecret](#asksecret) · [Choose](#choose) · [ChooseIndex](#chooseindex) · [Confirm](#confirm) · [ErrNonInteractive](#errnoninteractive) | [Console.Ask](#ask) · [Console.AskDefault](#askdefault) · [Console.AskSecret](#asksecret) · [Console.Choose](#choose) · [Console.ChooseIndex](#chooseindex) · [Console.Confirm](#confirm) |
+| Runtime | [ASCIIMarks](#asciimarks) · [Config](#config) · [Console](#console) · [Default](#default) · [DefaultMarks](#defaultmarks) · [Marks](#marks) · [New](#new) · [SetDefault](#setdefault) | — |
+| Styling | [ColorBlack](#colorblack) · [ColorBlue](#colorblue) · [ColorBoldGreen](#colorboldgreen) · [ColorBoldWhite](#colorboldwhite) · [ColorCyan](#colorcyan) · [ColorGray](#colorgray) · [ColorGreen](#colorgreen) · [ColorMagenta](#colormagenta) · [ColorRed](#colorred) · [ColorReset](#colorreset) · [ColorWhite](#colorwhite) · [ColorYellow](#coloryellow) · [Colorize](#colorize) · [Style](#style) · [StyleBold](#stylebold) · [StyleDim](#styledim) · [StyleUnderline](#styleunderline) | [Console.Colorize](#colorize) · [Console.Style](#style) |
+| Tables | [RenderTable](#rendertable) · [Table](#table) · [TableCenterAlign](#tablecenteralign) · [TableCompact](#tablecompact) · [TableOption](#tableoption) · [TableRightAlign](#tablerightalign) · [TableWidths](#tablewidths) | [Console.RenderTable](#rendertable) · [Console.Table](#table) |
+| Terminal | [ErrTransientActive](#errtransientactive) · [IsInteractive](#isinteractive) · [SupportsColor](#supportscolor) · [SupportsUnicode](#supportsunicode) · [Width](#width) | [Console.IsInteractive](#isinteractive) · [Console.SupportsColor](#supportscolor) · [Console.SupportsUnicode](#supportsunicode) · [Console.Width](#width) |
+| Text | [ExpandTabs](#expandtabs) · [Indent](#indent) · [PadCenter](#padcenter) · [PadLeft](#padleft) · [PadRight](#padright) · [StripANSI](#stripansi) · [Truncate](#truncate) · [TruncateMiddle](#truncatemiddle) · [VisibleWidth](#visiblewidth) · [Wrap](#wrap) | [Console.ExpandTabs](#expandtabs) · [Console.Indent](#indent) · [Console.PadCenter](#padcenter) · [Console.PadLeft](#padleft) · [Console.PadRight](#padright) · [Console.StripANSI](#stripansi) · [Console.Truncate](#truncate) · [Console.TruncateMiddle](#truncatemiddle) · [Console.VisibleWidth](#visiblewidth) · [Console.Wrap](#wrap) |
+| Trees | [Node](#node) · [RenderTree](#rendertree) · [Tree](#tree) · [TreeNode](#treenode) | [Console.RenderTree](#rendertree) · [Console.Tree](#tree) |
+
+## API examples
+
+These examples are generated from package GoDoc comments. Package-level helpers are shown in preference to equivalent `Console` methods.
+
+### Boxes
+
+#### <a id="box"></a>Box
+
+Box prints a box through the default console.
+
+```go
+console.Box("ready", console.BoxTitle("Status"), console.BoxColor(""))
+// ┌─ Status ┐
+// │ ready   │
+// └─────────┘
+```
+
+#### <a id="boxcolor"></a>BoxColor
+
+BoxColor sets the ANSI color used for borders when styling is enabled.
+An empty color leaves borders unstyled.
+
+```go
+fmt.Println(console.StripANSI(console.RenderBox("healthy", console.BoxColor(console.ColorGreen))))
+// ┌─────────┐
+// │ healthy │
+// └─────────┘
+```
+
+#### <a id="boxoption"></a>BoxOption
+
+BoxOption configures one rendered box.
+
+```go
+options := []console.BoxOption{
+	console.BoxTitle("Status"),
+	console.BoxColor(""),
+}
+fmt.Println(console.RenderBox("ready", options...))
+// ┌─ Status ┐
+// │ ready   │
+// └─────────┘
+```
+
+#### <a id="boxpadding"></a>BoxPadding
+
+BoxPadding sets the horizontal padding on both sides of the content.
+Negative values are treated as zero, and padding is capped when necessary to fit the console width.
+
+```go
+fmt.Println(console.RenderBox("ready", console.BoxPadding(0), console.BoxColor("")))
+// ┌─────┐
+// │ready│
+// └─────┘
+```
+
+#### <a id="boxtitle"></a>BoxTitle
+
+BoxTitle adds a title to the top border.
+
+```go
+fmt.Println(console.RenderBox("ready", console.BoxTitle("Status"), console.BoxColor("")))
+// ┌─ Status ┐
+// │ ready   │
+// └─────────┘
+```
+
+#### <a id="boxwidth"></a>BoxWidth
+
+BoxWidth fixes the total visible width, including borders and padding.
+Values below the structural minimum expand enough to preserve a valid frame.
+Values less than one select an automatic width bounded by the console width.
+Larger values are bounded by the console width when the structural minimum permits.
+
+```go
+fmt.Println(console.RenderBox("ready", console.BoxWidth(16), console.BoxColor("")))
+// ┌──────────────┐
+// │ ready        │
+// └──────────────┘
+```
+
+#### <a id="renderbox"></a>RenderBox
+
+RenderBox renders a box using the default console.
+
+```go
+fmt.Println(console.RenderBox("complete", console.BoxColor("")))
+// ┌──────────┐
+// │ complete │
+// └──────────┘
+```
+
+
+### Layout
+
+#### <a id="kv"></a>KV
+
+KV creates one ordered key/value entry.
+
+```go
+console.KeyValues(console.KV("Region", "eu-west-1"))
+// Region  eu-west-1
+```
+
+#### <a id="keyvalue"></a>KeyValue
+
+KeyValue contains one ordered label and value for KeyValues.
+
+```go
+entries := []console.KeyValue{
+	{Key: "Mode", Value: "production"},
+	{Key: "Port", Value: 8080},
+}
+console.KeyValues(entries...)
+// Mode  production
+// Port  8080
+```
+
+#### <a id="keyvaluemap"></a>KeyValueMap
+
+KeyValueMap prints a sorted key/value map through the default console.
+
+```go
+console.KeyValueMap(map[string]any{"port": 8080, "mode": "production"})
+// mode  production
+// port  8080
+```
+
+#### <a id="keyvalues"></a>KeyValues
+
+KeyValues prints ordered key/value entries through the default console.
+
+```go
+console.KeyValues(
+	console.KV("Mode", "production"),
+	console.KV("Port", 8080),
+)
+// Mode  production
+// Port  8080
+```
+
+#### <a id="list"></a>List
+
+List prints an unordered list through the default console.
+
+```go
+console.List("build", "test", "publish")
+// • build
+// • test
+// • publish
+```
+
+#### <a id="numberedlist"></a>NumberedList
+
+NumberedList prints an ordered list through the default console.
+
+```go
+console.NumberedList("build", "test", "publish")
+// 1. build
+// 2. test
+// 3. publish
+```
+
+#### <a id="renderkeyvaluemap"></a>RenderKeyValueMap
+
+RenderKeyValueMap renders a sorted key/value map through the default console.
+
+```go
+fmt.Println(console.RenderKeyValueMap(map[string]any{"port": 8080, "mode": "production"}))
+// mode  production
+// port  8080
+```
+
+#### <a id="renderkeyvalues"></a>RenderKeyValues
+
+RenderKeyValues renders ordered key/value entries through the default console.
+
+```go
+fmt.Println(console.RenderKeyValues(
+	console.KV("Mode", "production"),
+	console.KV("Port", 8080),
+))
+// Mode  production
+// Port  8080
+```
+
+#### <a id="renderlist"></a>RenderList
+
+RenderList renders an unordered list through the default console.
+
+```go
+fmt.Println(console.RenderList("build", "test"))
+// • build
+// • test
+```
+
+#### <a id="rendernumberedlist"></a>RenderNumberedList
+
+RenderNumberedList renders an ordered list through the default console.
+
+```go
+fmt.Println(console.RenderNumberedList("build", "test"))
+// 1. build
+// 2. test
+```
+
+#### <a id="renderrule"></a>RenderRule
+
+RenderRule renders a horizontal rule through the default console.
+
+```go
+previous := console.Default()
+defer console.SetDefault(previous)
+console.SetDefault(console.New(console.Config{Width: 16}))
+fmt.Println(console.RenderRule("Next"))
+// ── Next ────────
+```
+
+#### <a id="rendersection"></a>RenderSection
+
+RenderSection renders a section heading through the default console.
+
+```go
+fmt.Println(console.RenderSection("Deployment"))
+// ◇ Deployment
+```
+
+#### <a id="rule"></a>Rule
+
+Rule prints a horizontal rule through the default console.
+
+```go
+previous := console.Default()
+defer console.SetDefault(previous)
+console.SetDefault(console.New(console.Config{Width: 16}))
+console.Rule("Next")
+// ── Next ────────
+```
+
+#### <a id="section"></a>Section
+
+Section prints a section heading through the default console.
+
+```go
+console.Section("Deployment")
+// ◇ Deployment
+```
+
+
+### Loaders
+
+#### <a id="loader"></a>Loader
+
+Loader presents one transient activity line on terminals and stable semantic lines in redirected output.
+A Loader is concurrency-safe, single-use, and must be constructed with Console.Loader or NewLoader;
+the first call to Stop, Success, Warn, or Fail wins.
+
+```go
+animations := false
+color := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	ColorEnabled:      &color,
+	UnicodeEnabled:    &unicode,
+}))
+var loader *console.Loader = console.NewLoader("Building application")
+if err := loader.Start(); err != nil {
+	panic(err)
+}
+// · Building application
+loader.Success("Application ready")
+// ✔ Application ready
+```
+
+#### <a id="newloader"></a>NewLoader
+
+NewLoader constructs a loader using a snapshot of the current default console.
+It does not start the loader.
+
+```go
+animations := false
+color := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	ColorEnabled:      &color,
+	UnicodeEnabled:    &unicode,
+}))
+loader := console.NewLoader("Downloading modules")
+if err := loader.Start(); err != nil {
+	panic(err)
+}
+// · Downloading modules
+loader.Success("Modules ready")
+// ✔ Modules ready
+```
+
+#### <a id="loader-fail"></a>Loader.Fail
+
+Fail completes the loader with an error message on stderr.
+An empty message reuses the loader's current message.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+loader := console.NewLoader("Uploading release")
+if err := loader.Start(); err != nil {
+	panic(err)
+}
+// · Uploading release
+loader.Fail("Registry refused upload")
+// ✖ Registry refused upload
+```
+
+#### <a id="loader-start"></a>Loader.Start
+
+Start begins the loader and is harmless when called more than once.
+Animated loaders can return ErrTransientActive when another live display owns the same console.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+loader := console.NewLoader("Building application")
+if err := loader.Start(); err != nil {
+	panic(err)
+}
+// · Building application
+loader.Stop()
+```
+
+#### <a id="loader-stop"></a>Loader.Stop
+
+Stop removes the transient loader without printing a completion message.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+loader := console.NewLoader("Checking configuration")
+if err := loader.Start(); err != nil {
+	panic(err)
+}
+// · Checking configuration
+loader.Stop()
+```
+
+#### <a id="loader-success"></a>Loader.Success
+
+Success completes the loader with a success message.
+An empty message reuses the loader's current message.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+loader := console.NewLoader("Publishing release")
+if err := loader.Start(); err != nil {
+	panic(err)
+}
+// · Publishing release
+loader.Success("Release published")
+// ✔ Release published
+```
+
+#### <a id="loader-update"></a>Loader.Update
+
+Update changes the loader message and immediately redraws an active animation.
+Updates after a terminal operation are ignored.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+loader := console.NewLoader("Downloading modules")
+if err := loader.Start(); err != nil {
+	panic(err)
+}
+// · Downloading modules
+loader.Update("Verifying modules")
+loader.Success("")
+// ✔ Verifying modules
+```
+
+#### <a id="loader-warn"></a>Loader.Warn
+
+Warn completes the loader with a warning message.
+An empty message reuses the loader's current message.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+loader := console.NewLoader("Checking optional tools")
+if err := loader.Start(); err != nil {
+	panic(err)
+}
+// · Checking optional tools
+loader.Warn("Optional tool not found")
+// ! Optional tool not found
+```
+
+
+### Marks
+
+#### <a id="actionmark"></a>ActionMark
+
+ActionMark returns the default console's action indicator.
+
+```go
+fmt.Println(console.ActionMark())
+// ·
+```
+
+#### <a id="debugmark"></a>DebugMark
+
+DebugMark returns the default console's debug indicator.
+
+```go
+fmt.Println(console.DebugMark())
+// ?
+```
+
+#### <a id="errormark"></a>ErrorMark
+
+ErrorMark returns the default console's error indicator.
+
+```go
+fmt.Println(console.ErrorMark())
+// ✖
+```
+
+#### <a id="infomark"></a>InfoMark
+
+InfoMark returns the default console's informational indicator.
+
+```go
+fmt.Println(console.InfoMark())
+// ·
+```
+
+#### <a id="successmark"></a>SuccessMark
+
+SuccessMark returns the default console's success indicator.
+
+```go
+fmt.Println(console.SuccessMark())
+// ✔
+```
+
+#### <a id="warnmark"></a>WarnMark
+
+WarnMark returns the default console's warning indicator.
+
+```go
+fmt.Println(console.WarnMark())
+// !
+```
+
+
+### Messages
+
+#### <a id="action"></a>Action
+
+Action prints an action message through the default console.
+
+```go
+console.Action("building release")
+// · building release
+```
+
+#### <a id="actionf"></a>Actionf
+
+Actionf prints a formatted action message through the default console.
+
+```go
+console.Actionf("building %s", "release")
+// · building release
+```
+
+#### <a id="debug"></a>Debug
+
+Debug prints a diagnostic message through the default console when enabled.
+
+```go
+debug := true
+console.SetDefault(console.New(console.Config{DebugEnabled: &debug}))
+console.Debug("cache miss")
+// ? cache miss
+```
+
+#### <a id="debugf"></a>Debugf
+
+Debugf prints a formatted diagnostic message through the default console when enabled.
+
+```go
+debug := true
+console.SetDefault(console.New(console.Config{DebugEnabled: &debug}))
+console.Debugf("attempt %d of %d", 1, 3)
+// ? attempt 1 of 3
+```
+
+#### <a id="error"></a>Error
+
+Error prints an error message through the default console.
+
+```go
+console.Error("deployment failed")
+// ✖ deployment failed
+```
+
+#### <a id="errorf"></a>Errorf
+
+Errorf prints a formatted error message through the default console.
+
+```go
+console.Errorf("deployment failed: %s", "timeout")
+// ✖ deployment failed: timeout
+```
+
+#### <a id="fatal"></a>Fatal
+
+Fatal prints an error through the default console and exits with status 1.
+
+```go
+console.SetDefault(console.New(console.Config{
+	Exit: func(code int) { fmt.Println("exit", code) },
+}))
+console.Fatal("invalid configuration")
+// ✖ invalid configuration
+// exit 1
+```
+
+#### <a id="fatalf"></a>Fatalf
+
+Fatalf prints a formatted error through the default console and exits with status 1.
+
+```go
+console.SetDefault(console.New(console.Config{
+	Exit: func(code int) { fmt.Println("exit", code) },
+}))
+console.Fatalf("invalid port: %d", 0)
+// ✖ invalid port: 0
+// exit 1
+```
+
+#### <a id="info"></a>Info
+
+Info prints an informational message through the default console.
+
+```go
+console.Info("using cached dependencies")
+// · using cached dependencies
+```
+
+#### <a id="infof"></a>Infof
+
+Infof prints a formatted informational message through the default console.
+
+```go
+console.Infof("using %s dependencies", "cached")
+// · using cached dependencies
+```
+
+#### <a id="success"></a>Success
+
+Success prints a success message through the default console.
+
+```go
+console.Success("release published")
+// ✔ release published
+```
+
+#### <a id="successf"></a>Successf
+
+Successf prints a formatted success message through the default console.
+
+```go
+console.Successf("published %s", "v1.2.0")
+// ✔ published v1.2.0
+```
+
+#### <a id="warn"></a>Warn
+
+Warn prints a warning message through the default console.
+
+```go
+console.Warn("configuration is deprecated")
+// ! configuration is deprecated
+```
+
+#### <a id="warnf"></a>Warnf
+
+Warnf prints a formatted warning message through the default console.
+
+```go
+console.Warnf("retrying in %d seconds", 5)
+// ! retrying in 5 seconds
+```
+
+
+### Output
+
+#### <a id="newline"></a>NewLine
+
+NewLine writes one blank line through the default console.
+
+```go
+console.Println("before")
+console.NewLine()
+console.Println("after")
+// before
+//
+// after
+```
+
+#### <a id="print"></a>Print
+
+Print writes values through the default console without adding a newline.
+
+```go
+var output bytes.Buffer
+console.SetDefault(console.New(console.Config{Stdout: &output}))
+console.Print("deploying")
+fmt.Printf("%q\n", output.String())
+// "deploying"
+```
+
+#### <a id="printf"></a>Printf
+
+Printf writes formatted output through the default console without adding a newline.
+
+```go
+var output bytes.Buffer
+console.SetDefault(console.New(console.Config{Stdout: &output}))
+console.Printf("copied %d files", 3)
+fmt.Printf("%q\n", output.String())
+// "copied 3 files"
+```
+
+#### <a id="println"></a>Println
+
+Println writes values through the default console followed by a newline.
+
+```go
+console.Println("deployment complete")
+// deployment complete
+```
+
+#### <a id="stderrwriter"></a>StderrWriter
+
+StderrWriter returns a coordinated writer using a snapshot of the current default console.
+Later calls to SetDefault do not retarget an existing writer.
+
+```go
+fmt.Fprintln(console.StderrWriter(), "download failed")
+// download failed
+```
+
+#### <a id="stdoutwriter"></a>StdoutWriter
+
+StdoutWriter returns a coordinated writer using a snapshot of the current default console.
+Later calls to SetDefault do not retarget an existing writer.
+
+```go
+fmt.Fprintln(console.StdoutWriter(), "download complete")
+// download complete
+```
+
+
+### Progress
+
+#### <a id="newprogress"></a>NewProgress
+
+NewProgress constructs a progress display using a snapshot of the current default console.
+It does not start the display.
+
+```go
+animations := false
+color := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	ColorEnabled:      &color,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(2, "Deploying services")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Deploying services
+progress.Add(2)
+progress.Complete("Services deployed")
+// ✔ Services deployed
+```
+
+#### <a id="progress"></a>Progress
+
+Progress presents determinate work as one transient terminal line and stable semantic lines in redirected output.
+A Progress is concurrency-safe, single-use, and must be constructed with Console.Progress or NewProgress;
+the first call to Complete, Fail, or Stop wins.
+
+```go
+animations := false
+color := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	ColorEnabled:      &color,
+	UnicodeEnabled:    &unicode,
+}))
+var progress *console.Progress = console.NewProgress(2, "Deploying services")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Deploying services
+progress.Add(2)
+progress.Complete("Services deployed")
+// ✔ Services deployed
+```
+
+#### <a id="progress-add"></a>Progress.Add
+
+Add changes the completed amount by delta and clamps it between zero and the total.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(2, "Deploying services")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Deploying services
+progress.Add(1)
+progress.Add(1)
+progress.Complete("Services deployed")
+// ✔ Services deployed
+```
+
+#### <a id="progress-complete"></a>Progress.Complete
+
+Complete fills and finishes the display with a success message.
+An empty message reuses the current progress message.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(1, "Packaging release")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Packaging release
+progress.Complete("Release ready")
+// ✔ Release ready
+```
+
+#### <a id="progress-fail"></a>Progress.Fail
+
+Fail finishes the display with an error message on stderr.
+An empty message reuses the current progress message.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(1, "Publishing release")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Publishing release
+progress.Fail("Registry refused upload")
+// ✖ Registry refused upload
+```
+
+#### <a id="progress-set"></a>Progress.Set
+
+Set replaces the completed amount and clamps it between zero and the total.
+Reaching the total does not complete the display; Complete records the durable outcome.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(100, "Uploading release")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Uploading release
+progress.Set(100)
+progress.Complete("Release uploaded")
+// ✔ Release uploaded
+```
+
+#### <a id="progress-start"></a>Progress.Start
+
+Start begins the progress display and is harmless when called more than once.
+Live terminal displays can return ErrTransientActive when another display owns the console.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(3, "Running checks")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Running checks
+progress.Stop()
+```
+
+#### <a id="progress-step"></a>Progress.Step
+
+Step replaces the completed amount and message in one atomic progress update.
+The amount is clamped between zero and the total, and updates after a terminal
+operation are ignored.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(2, "Deploying API")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Deploying API
+progress.Step(1, "Deploying worker")
+progress.Complete("")
+// ✔ Deploying worker
+```
+
+#### <a id="progress-stop"></a>Progress.Stop
+
+Stop removes the transient display without printing a completion message.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(1, "Checking release")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Checking release
+progress.Stop()
+```
+
+#### <a id="progress-update"></a>Progress.Update
+
+Update changes the progress message and immediately redraws a live terminal display.
+Updates after a terminal operation are ignored.
+
+```go
+animations := false
+unicode := true
+console.SetDefault(console.New(console.Config{
+	AnimationsEnabled: &animations,
+	UnicodeEnabled:    &unicode,
+}))
+progress := console.NewProgress(2, "Deploying API")
+if err := progress.Start(); err != nil {
+	panic(err)
+}
+// · Deploying API
+progress.Update("Deploying worker")
+progress.Complete("")
+// ✔ Deploying worker
+```
+
+
+### Prompts
+
+#### <a id="ask"></a>Ask
+
+Ask prompts through the default console.
+
+```go
+var output bytes.Buffer
+interactive := true
+unicode := true
+console.SetDefault(console.New(console.Config{
+	Stdin:              strings.NewReader("Ada\n"),
+	Stdout:             &output,
+	InteractiveEnabled: &interactive,
+	UnicodeEnabled:     &unicode,
+}))
+name, err := console.Ask("Name")
+fmt.Printf("%q\n", output.String())
+// "› Name: "
+fmt.Println(name, err)
+// Ada <nil>
+```
+
+#### <a id="askdefault"></a>AskDefault
+
+AskDefault prompts with a default through the default console.
+
+```go
+var output bytes.Buffer
+interactive := true
+unicode := true
+console.SetDefault(console.New(console.Config{
+	Stdin:              strings.NewReader("\n"),
+	Stdout:             &output,
+	InteractiveEnabled: &interactive,
+	UnicodeEnabled:     &unicode,
+}))
+environment, err := console.AskDefault("Environment", "production")
+fmt.Printf("%q\n", output.String())
+// "› Environment [production]: "
+fmt.Println(environment, err)
+// production <nil>
+```
+
+#### <a id="asksecret"></a>AskSecret
+
+AskSecret prompts without echoing input through the default console.
+
+```go
+var output bytes.Buffer
+interactive := true
+unicode := true
+console.SetDefault(console.New(console.Config{
+	Stdout:             &output,
+	InteractiveEnabled: &interactive,
+	UnicodeEnabled:     &unicode,
+	ReadSecret: func() (string, error) {
+		return "token-value", nil
+	},
+}))
+secret, err := console.AskSecret("API token")
+fmt.Printf("%q\n", output.String())
+// "› API token: \n"
+fmt.Println(len(secret), err)
+// 11 <nil>
+```
+
+#### <a id="choose"></a>Choose
+
+Choose asks the user to select an option through the default console.
+
+```go
+var output bytes.Buffer
+interactive := true
+unicode := true
+console.SetDefault(console.New(console.Config{
+	Stdin:              strings.NewReader("2\n"),
+	Stdout:             &output,
+	InteractiveEnabled: &interactive,
+	UnicodeEnabled:     &unicode,
+}))
+channel, err := console.Choose("Release channel", []string{"stable", "beta"}, 0)
+fmt.Printf("%q\n", output.String())
+// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: "
+fmt.Println(channel, err)
+// beta <nil>
+```
+
+#### <a id="chooseindex"></a>ChooseIndex
+
+ChooseIndex asks the user to select an option index through the default console.
+
+```go
+var output bytes.Buffer
+interactive := true
+unicode := true
+console.SetDefault(console.New(console.Config{
+	Stdin:              strings.NewReader("2\n"),
+	Stdout:             &output,
+	InteractiveEnabled: &interactive,
+	UnicodeEnabled:     &unicode,
+}))
+index, err := console.ChooseIndex("Release channel", []string{"stable", "beta"}, 0)
+fmt.Printf("%q\n", output.String())
+// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: "
+fmt.Println(index, err)
+// 1 <nil>
+```
+
+#### <a id="confirm"></a>Confirm
+
+Confirm asks for confirmation through the default console.
+
+```go
+var output bytes.Buffer
+interactive := true
+unicode := true
+console.SetDefault(console.New(console.Config{
+	Stdin:              strings.NewReader("yes\n"),
+	Stdout:             &output,
+	InteractiveEnabled: &interactive,
+	UnicodeEnabled:     &unicode,
+}))
+confirmed, err := console.Confirm("Deploy now", false)
+fmt.Printf("%q\n", output.String())
+// "› Deploy now [y/N]: "
+fmt.Println(confirmed, err)
+// true <nil>
+```
+
+#### <a id="errnoninteractive"></a>ErrNonInteractive
+
+ErrNonInteractive is returned when a prompt would read from a console that is not interactive.
+Set Config.InteractiveEnabled when intentionally driving prompts with an injected reader.
+
+```go
+interactive := false
+console.SetDefault(console.New(console.Config{InteractiveEnabled: &interactive}))
+_, err := console.Ask("Name")
+fmt.Println(errors.Is(err, console.ErrNonInteractive))
+// true
+```
+
+
+### Runtime
+
+#### <a id="asciimarks"></a>ASCIIMarks
+
+ASCIIMarks returns symbols suitable for constrained terminals and plain logs.
+
+```go
+marks := console.ASCIIMarks()
+fmt.Println(marks.Success, marks.Warn, marks.Error)
+// + ! x
+```
+
+#### <a id="config"></a>Config
+
+Config configures a Console instance.
+
+Every field is optional. Nil functions and writers use their operating-system
+defaults, while nil boolean pointers select automatic behavior.
+
+```go
+configuration := console.Config{Width: 100}
+commandConsole := console.New(configuration)
+fmt.Println(commandConsole.Width())
+// 100
+```
+
+#### <a id="console"></a>Console
+
+Console coordinates output policy, terminal capabilities, prompts, and transient displays.
+A Console is safe for concurrent message writes and must be constructed with New.
+
+```go
+var commandConsole *console.Console = console.New(console.Config{Width: 120})
+fmt.Println(commandConsole.Width())
+// 120
+```
+
+#### <a id="default"></a>Default
+
+Default returns the console currently used by package-level helpers.
+
+```go
+fmt.Println(console.Default() != nil)
+// true
+```
+
+#### <a id="defaultmarks"></a>DefaultMarks
+
+DefaultMarks returns the Unicode symbols used by a default console.
+
+```go
+marks := console.DefaultMarks()
+fmt.Println(marks.Success, marks.Warn, marks.Error)
+// ✔ ! ✖
+```
+
+#### <a id="marks"></a>Marks
+
+Marks contains the symbols used for messages, lists, selections, and loaders.
+
+```go
+marks := console.Marks{Success: "OK"}
+fmt.Println(marks.Success)
+// OK
+```
+
+#### <a id="new"></a>New
+
+New creates an isolated console with optional runtime overrides.
+
+```go
+var output bytes.Buffer
+color := false
+unicode := true
+commandConsole := console.New(console.Config{
+	Stdout:         &output,
+	ColorEnabled:   &color,
+	UnicodeEnabled: &unicode,
+})
+commandConsole.Success("ready")
+fmt.Print(output.String())
+// ✔ ready
+```
+
+#### <a id="setdefault"></a>SetDefault
+
+SetDefault replaces the console used by package-level helpers.
+It panics when console is nil because package helpers always require a usable runtime.
+
+```go
+previous := console.Default()
+defer console.SetDefault(previous)
+
+var output bytes.Buffer
+console.SetDefault(console.New(console.Config{Stdout: &output}))
+console.Println("ready")
+fmt.Print(output.String())
+// ready
+```
+
+
+### Styling
+
+#### <a id="colorblack"></a>ColorBlack
+
+ColorBlack is a black ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorBlack)
+// "\x1b[30m"
+```
+
+#### <a id="colorblue"></a>ColorBlue
+
+ColorBlue is a blue ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorBlue)
+// "\x1b[34m"
+```
+
+#### <a id="colorboldgreen"></a>ColorBoldGreen
+
+ColorBoldGreen is a bold green ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorBoldGreen)
+// "\x1b[1;32m"
+```
+
+#### <a id="colorboldwhite"></a>ColorBoldWhite
+
+ColorBoldWhite is a bold white ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorBoldWhite)
+// "\x1b[1;97m"
+```
+
+#### <a id="colorcyan"></a>ColorCyan
+
+ColorCyan is a cyan ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorCyan)
+// "\x1b[36m"
+```
+
+#### <a id="colorgray"></a>ColorGray
+
+ColorGray is a muted gray ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorGray)
+// "\x1b[90m"
+```
+
+#### <a id="colorgreen"></a>ColorGreen
+
+ColorGreen is a green ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorGreen)
+// "\x1b[32m"
+```
+
+#### <a id="colormagenta"></a>ColorMagenta
+
+ColorMagenta is a magenta ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorMagenta)
+// "\x1b[35m"
+```
+
+#### <a id="colorred"></a>ColorRed
+
+ColorRed is a red ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorRed)
+// "\x1b[31m"
+```
+
+#### <a id="colorreset"></a>ColorReset
+
+ColorReset resets ANSI styling.
+
+```go
+fmt.Printf("%q\n", console.ColorReset)
+// "\x1b[0m"
+```
+
+#### <a id="colorwhite"></a>ColorWhite
+
+ColorWhite is a white ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorWhite)
+// "\x1b[37m"
+```
+
+#### <a id="coloryellow"></a>ColorYellow
+
+ColorYellow is a yellow ANSI foreground color.
+
+```go
+fmt.Printf("%q\n", console.ColorYellow)
+// "\x1b[33m"
+```
+
+#### <a id="colorize"></a>Colorize
+
+Colorize applies an ANSI color using the default console's color policy.
+
+```go
+color := true
+console.SetDefault(console.New(console.Config{ColorEnabled: &color}))
+fmt.Printf("%q\n", console.Colorize(console.ColorCyan, "connected"))
+// "\x1b[36mconnected\x1b[0m"
+```
+
+#### <a id="style"></a>Style
+
+Style applies ANSI styles using the default console's color policy.
+
+```go
+color := true
+console.SetDefault(console.New(console.Config{ColorEnabled: &color}))
+fmt.Printf("%q\n", console.Style("ready", console.StyleBold, console.ColorGreen))
+// "\x1b[1m\x1b[32mready\x1b[0m"
+```
+
+#### <a id="stylebold"></a>StyleBold
+
+StyleBold enables bold ANSI text.
+
+```go
+fmt.Printf("%q\n", console.StyleBold)
+// "\x1b[1m"
+```
+
+#### <a id="styledim"></a>StyleDim
+
+StyleDim enables dim ANSI text.
+
+```go
+fmt.Printf("%q\n", console.StyleDim)
+// "\x1b[2m"
+```
+
+#### <a id="styleunderline"></a>StyleUnderline
+
+StyleUnderline enables underlined ANSI text.
+
+```go
+fmt.Printf("%q\n", console.StyleUnderline)
+// "\x1b[4m"
+```
+
+
+### Tables
+
+#### <a id="rendertable"></a>RenderTable
+
+RenderTable renders a table using the default console.
+
+```go
+fmt.Println(console.RenderTable(
+	[]string{"Name", "State"},
+	[][]string{{"worker", "idle"}},
+))
+// ┌────────┬───────┐
+// │ Name   │ State │
+// ├────────┼───────┤
+// │ worker │ idle  │
+// └────────┴───────┘
+```
+
+#### <a id="table"></a>Table
+
+Table prints a table through the default console.
+
+```go
+console.Table(
+	[]string{"Name", "State"},
+	[][]string{{"api", "ready"}},
+)
+// ┌──────┬───────┐
+// │ Name │ State │
+// ├──────┼───────┤
+// │ api  │ ready │
+// └──────┴───────┘
+```
+
+#### <a id="tablecenteralign"></a>TableCenterAlign
+
+TableCenterAlign centers the headers and values in the selected zero-based columns.
+Negative and out-of-range columns are ignored.
+
+```go
+fmt.Println(console.RenderTable(
+	[]string{"Service", "State"},
+	[][]string{{"api", "up"}},
+	console.TableCenterAlign(1),
+))
+// ┌─────────┬───────┐
+// │ Service │ State │
+// ├─────────┼───────┤
+// │ api     │  up   │
+// └─────────┴───────┘
+```
+
+#### <a id="tablecompact"></a>TableCompact
+
+TableCompact removes the outer frame and separates columns with two spaces.
+A compact table with headers retains one horizontal separator for readability.
+
+```go
+fmt.Println(console.RenderTable(
+	[]string{"Name", "State"},
+	[][]string{{"api", "ready"}},
+	console.TableCompact(),
+))
+// Name  State
+// ────  ─────
+// api   ready
+```
+
+#### <a id="tableoption"></a>TableOption
+
+TableOption configures one rendered table.
+
+```go
+options := []console.TableOption{console.TableCompact()}
+fmt.Println(console.RenderTable(
+	[]string{"Name", "State"},
+	[][]string{{"api", "ready"}},
+	options...,
+))
+// Name  State
+// ────  ─────
+// api   ready
+```
+
+#### <a id="tablerightalign"></a>TableRightAlign
+
+TableRightAlign right-aligns the headers and values in the selected zero-based columns.
+Negative and out-of-range columns are ignored.
+
+```go
+fmt.Println(console.RenderTable(
+	[]string{"Item", "Count"},
+	[][]string{{"api", "12"}},
+	console.TableRightAlign(1),
+))
+// ┌──────┬───────┐
+// │ Item │ Count │
+// ├──────┼───────┤
+// │ api  │    12 │
+// └──────┴───────┘
+```
+
+#### <a id="tablewidths"></a>TableWidths
+
+TableWidths sets content widths by zero-based column position.
+Values less than one leave that column automatic, and configured widths may
+still shrink when the complete table would exceed the console width.
+
+```go
+fmt.Println(console.RenderTable(
+	[]string{"Name", "State"},
+	[][]string{{"api", "ready"}},
+	console.TableWidths(6, 7),
+))
+// ┌────────┬─────────┐
+// │ Name   │ State   │
+// ├────────┼─────────┤
+// │ api    │ ready   │
+// └────────┴─────────┘
+```
+
+
+### Terminal
+
+#### <a id="errtransientactive"></a>ErrTransientActive
+
+ErrTransientActive is returned when another live loader or progress display owns the transient line.
+
+```go
+fmt.Println(console.ErrTransientActive)
+// console: another transient display is already active
+```
+
+#### <a id="isinteractive"></a>IsInteractive
+
+IsInteractive reports whether the default console is interactive.
+
+```go
+previous := console.Default()
+defer console.SetDefault(previous)
+interactive := true
+console.SetDefault(console.New(console.Config{InteractiveEnabled: &interactive}))
+
+fmt.Println(console.IsInteractive())
+// true
+```
+
+#### <a id="supportscolor"></a>SupportsColor
+
+SupportsColor reports whether the default console emits ANSI styling.
+
+```go
+previous := console.Default()
+defer console.SetDefault(previous)
+color := true
+console.SetDefault(console.New(console.Config{ColorEnabled: &color}))
+
+fmt.Println(console.SupportsColor())
+// true
+```
+
+#### <a id="supportsunicode"></a>SupportsUnicode
+
+SupportsUnicode reports whether the default console uses Unicode presentation characters.
+
+```go
+previous := console.Default()
+defer console.SetDefault(previous)
+unicode := false
+console.SetDefault(console.New(console.Config{UnicodeEnabled: &unicode}))
+
+fmt.Println(console.SupportsUnicode())
+// false
+```
+
+#### <a id="width"></a>Width
+
+Width returns the width of the default console.
+
+```go
+previous := console.Default()
+defer console.SetDefault(previous)
+console.SetDefault(console.New(console.Config{Width: 100}))
+
+fmt.Println(console.Width())
+// 100
+```
+
+
+### Text
+
+#### <a id="expandtabs"></a>ExpandTabs
+
+ExpandTabs replaces tabs with spaces at eight-cell stops on each line.
+ANSI escape sequences do not affect tab positions.
+
+```go
+fmt.Printf("%q\n", console.ExpandTabs("a\tb"))
+// "a       b"
+```
+
+#### <a id="indent"></a>Indent
+
+Indent prefixes every line in value with prefix.
+Empty input remains empty.
+
+```go
+fmt.Printf("%q\n", console.Indent("one\ntwo", "> "))
+// "> one\n> two"
+```
+
+#### <a id="padcenter"></a>PadCenter
+
+PadCenter adds spaces around every line until it reaches width terminal cells.
+Odd padding places the extra space on the right. Lines already at or beyond width are unchanged.
+Tabs are expanded only on lines that need padding so their alignment remains stable.
+
+```go
+fmt.Printf("%q\n", console.PadCenter("go", 6))
+// "  go  "
+```
+
+#### <a id="padleft"></a>PadLeft
+
+PadLeft prepends spaces until every line reaches width terminal cells.
+Lines already at or beyond width are unchanged. Tabs are expanded only on lines that need padding
+because leading spaces otherwise change their terminal tab stops.
+
+```go
+fmt.Printf("%q\n", console.PadLeft("go", 5))
+// "   go"
+```
+
+#### <a id="padright"></a>PadRight
+
+PadRight appends spaces until every line reaches width terminal cells.
+Lines already at or beyond width are unchanged.
+
+```go
+fmt.Printf("%q\n", console.PadRight("go", 5))
+// "go   "
+```
+
+#### <a id="stripansi"></a>StripANSI
+
+StripANSI removes complete ANSI CSI, OSC, and ESC sequences from value.
+Incomplete escape sequences are retained so malformed input is not silently discarded.
+
+```go
+fmt.Println(console.StripANSI(console.ColorRed + "failed" + console.ColorReset))
+// failed
+```
+
+#### <a id="truncate"></a>Truncate
+
+Truncate shortens each line of value to width terminal cells and uses an ellipsis when content is removed.
+Active SGR styles and OSC 8 hyperlinks are closed before the ellipsis.
+Values less than one produce an empty string.
+
+```go
+fmt.Println(console.Truncate("deployment", 7))
+// deploy…
+```
+
+#### <a id="truncatemiddle"></a>TruncateMiddle
+
+TruncateMiddle shortens each line of value to width terminal cells by replacing its center with an ellipsis.
+Active SGR styles and OSC 8 hyperlinks are kept with the visible text on either side of the ellipsis.
+Values less than one produce an empty string.
+
+```go
+fmt.Println(console.TruncateMiddle("abcdefghij", 7))
+// abc…hij
+```
+
+#### <a id="visiblewidth"></a>VisibleWidth
+
+VisibleWidth returns the largest terminal-cell width among value's lines.
+ANSI escapes and combining characters occupy no cells, tabs advance to an eight-cell stop,
+and common East Asian and emoji runes occupy two cells.
+
+```go
+fmt.Println(console.VisibleWidth("Go界"))
+// 4
+```
+
+#### <a id="wrap"></a>Wrap
+
+Wrap inserts newlines so each resulting line fits within width terminal cells where possible.
+Existing line breaks and ANSI styling are preserved; active SGR styles and OSC 8 hyperlinks are balanced
+at each line boundary so they cannot bleed into surrounding layout. Long unbroken words wrap at cell boundaries.
+Breakable whitespace at the beginning or end of a resulting line is removed.
+Values less than one are returned unchanged.
+
+```go
+fmt.Printf("%q\n", console.Wrap("ship the release", 8))
+// "ship the\nrelease"
+```
+
+
+### Trees
+
+#### <a id="node"></a>Node
+
+Node creates a tree node and preserves the supplied child order.
+
+```go
+console.Tree(console.Node("cmd", console.Node("deploy")))
+// cmd
+// └── deploy
+```
+
+#### <a id="rendertree"></a>RenderTree
+
+RenderTree renders a static tree through the default console.
+
+```go
+fmt.Println(console.RenderTree(console.Node("services",
+	console.Node("api"),
+	console.Node("worker"),
+)))
+// services
+// ├── api
+// └── worker
+```
+
+#### <a id="tree"></a>Tree
+
+Tree prints a static tree through the default console.
+
+```go
+console.Tree(console.Node("project",
+	console.Node("cmd", console.Node("deploy")),
+	console.Node("README.md"),
+))
+// project
+// ├── cmd
+// │   └── deploy
+// └── README.md
+```
+
+#### <a id="treenode"></a>TreeNode
+
+TreeNode contains one label and its ordered child nodes.
+
+```go
+tree := console.TreeNode{
+	Label: "project",
+	Children: []console.TreeNode{
+		{Label: "cmd"},
+		{Label: "README.md"},
+	},
+}
+console.Tree(tree)
+// project
+// ├── cmd
+// └── README.md
+```
 
 ## Executable examples
 
@@ -622,11 +2298,12 @@ go -C docs vet ./...
 go -C examples vet ./...
 ```
 
-The docs and examples are separate Go modules so release archives contain only the library. The README API index uses a generator-owned grouping manifest, keeping navigation metadata out of public GoDoc; its representative examples and output come from standard Go example tests. Generation validates its marker pair before writing, so malformed hand-edited structure fails without partially changing the document.
+The docs and examples are separate Go modules so release archives contain only the library. The README API index uses a generator-owned grouping manifest, while each local API target and code sample is generated from the declaration's GoDoc `Example:` block. Focused workflow examples come from standard Go example tests that execute and verify their inline output. Generation validates its marker pair and every example target before writing, so malformed documentation fails without partially changing the README.
 
 ## Documentation
 
-- [API documentation and examples](https://pkg.go.dev/github.com/goforj/console)
+- [API index and examples](#api-index)
+- [Complete package documentation](https://pkg.go.dev/github.com/goforj/console)
 - [Report a bug or request a feature](https://github.com/goforj/console/issues)
 
 ## Releasing

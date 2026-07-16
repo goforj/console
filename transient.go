@@ -8,6 +8,11 @@ import (
 const clearTransientLine = "\r\x1b[2K"
 
 // ErrTransientActive is returned when another live loader or progress display owns the transient line.
+//
+// Example: inspect the transient ownership error
+//
+//	fmt.Println(console.ErrTransientActive)
+//	// console: another transient display is already active
 var ErrTransientActive = errors.New("console: another transient display is already active")
 
 // transientOwner renders one replaceable line while the console coordinates durable output.

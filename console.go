@@ -24,6 +24,13 @@ const (
 //
 // Every field is optional. Nil functions and writers use their operating-system
 // defaults, while nil boolean pointers select automatic behavior.
+//
+// Example: configure a fixed output width
+//
+//	configuration := console.Config{Width: 100}
+//	commandConsole := console.New(configuration)
+//	fmt.Println(commandConsole.Width())
+//	// 100
 type Config struct {
 	// Stdin supplies answers to prompts.
 	Stdin io.Reader
@@ -65,6 +72,12 @@ type Config struct {
 }
 
 // Marks contains the symbols used for messages, lists, selections, and loaders.
+//
+// Example: define custom semantic marks
+//
+//	marks := console.Marks{Success: "OK"}
+//	fmt.Println(marks.Success)
+//	// OK
 type Marks struct {
 	// Action identifies work that is starting or underway.
 	Action string
@@ -87,6 +100,12 @@ type Marks struct {
 }
 
 // DefaultMarks returns the Unicode symbols used by a default console.
+//
+// Example:
+//
+//	marks := console.DefaultMarks()
+//	fmt.Println(marks.Success, marks.Warn, marks.Error)
+//	// ✔ ! ✖
 func DefaultMarks() Marks {
 	return Marks{
 		Action:        "·",
@@ -102,6 +121,12 @@ func DefaultMarks() Marks {
 }
 
 // ASCIIMarks returns symbols suitable for constrained terminals and plain logs.
+//
+// Example:
+//
+//	marks := console.ASCIIMarks()
+//	fmt.Println(marks.Success, marks.Warn, marks.Error)
+//	// + ! x
 func ASCIIMarks() Marks {
 	return Marks{
 		Action:        "-",
@@ -118,6 +143,12 @@ func ASCIIMarks() Marks {
 
 // Console coordinates output policy, terminal capabilities, prompts, and transient displays.
 // A Console is safe for concurrent message writes and must be constructed with New.
+//
+// Example: declare an isolated console
+//
+//	var commandConsole *console.Console = console.New(console.Config{Width: 120})
+//	fmt.Println(commandConsole.Width())
+//	// 120
 type Console struct {
 	stdin              *bufio.Reader
 	stdinSource        io.Reader
@@ -158,6 +189,20 @@ var defaultState = struct {
 }{console: New(Config{})}
 
 // New creates an isolated console with optional runtime overrides.
+//
+// Example:
+//
+//	var output bytes.Buffer
+//	color := false
+//	unicode := true
+//	commandConsole := console.New(console.Config{
+//		Stdout:         &output,
+//		ColorEnabled:   &color,
+//		UnicodeEnabled: &unicode,
+//	})
+//	commandConsole.Success("ready")
+//	fmt.Print(output.String())
+//	// ✔ ready
 func New(config Config) *Console {
 	stdin := config.Stdin
 	if stdin == nil {
@@ -239,6 +284,17 @@ func New(config Config) *Console {
 
 // SetDefault replaces the console used by package-level helpers.
 // It panics when console is nil because package helpers always require a usable runtime.
+//
+// Example:
+//
+//	previous := console.Default()
+//	defer console.SetDefault(previous)
+//
+//	var output bytes.Buffer
+//	console.SetDefault(console.New(console.Config{Stdout: &output}))
+//	console.Println("ready")
+//	fmt.Print(output.String())
+//	// ready
 func SetDefault(console *Console) {
 	if console == nil {
 		panic("console: default console cannot be nil")
@@ -250,6 +306,11 @@ func SetDefault(console *Console) {
 }
 
 // Default returns the console currently used by package-level helpers.
+//
+// Example:
+//
+//	fmt.Println(console.Default() != nil)
+//	// true
 func Default() *Console {
 	defaultState.RLock()
 	console := defaultState.console
@@ -298,21 +359,60 @@ func (c *Console) SupportsUnicode() bool {
 }
 
 // Width returns the width of the default console.
+//
+// Example:
+//
+//	previous := console.Default()
+//	defer console.SetDefault(previous)
+//	console.SetDefault(console.New(console.Config{Width: 100}))
+//
+//	fmt.Println(console.Width())
+//	// 100
 func Width() int {
 	return Default().Width()
 }
 
 // IsInteractive reports whether the default console is interactive.
+//
+// Example:
+//
+//	previous := console.Default()
+//	defer console.SetDefault(previous)
+//	interactive := true
+//	console.SetDefault(console.New(console.Config{InteractiveEnabled: &interactive}))
+//
+//	fmt.Println(console.IsInteractive())
+//	// true
 func IsInteractive() bool {
 	return Default().IsInteractive()
 }
 
 // SupportsColor reports whether the default console emits ANSI styling.
+//
+// Example:
+//
+//	previous := console.Default()
+//	defer console.SetDefault(previous)
+//	color := true
+//	console.SetDefault(console.New(console.Config{ColorEnabled: &color}))
+//
+//	fmt.Println(console.SupportsColor())
+//	// true
 func SupportsColor() bool {
 	return Default().SupportsColor()
 }
 
 // SupportsUnicode reports whether the default console uses Unicode presentation characters.
+//
+// Example:
+//
+//	previous := console.Default()
+//	defer console.SetDefault(previous)
+//	unicode := false
+//	console.SetDefault(console.New(console.Config{UnicodeEnabled: &unicode}))
+//
+//	fmt.Println(console.SupportsUnicode())
+//	// false
 func SupportsUnicode() bool {
 	return Default().SupportsUnicode()
 }

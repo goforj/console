@@ -3,10 +3,33 @@ package console
 import "strings"
 
 // TableOption configures one rendered table.
+//
+// Example: collect table options for reuse
+//
+//	options := []console.TableOption{console.TableCompact()}
+//	fmt.Println(console.RenderTable(
+//		[]string{"Name", "State"},
+//		[][]string{{"api", "ready"}},
+//		options...,
+//	))
+//	// Name  State
+//	// ────  ─────
+//	// api   ready
 type TableOption func(*tableOptions)
 
 // TableCompact removes the outer frame and separates columns with two spaces.
 // A compact table with headers retains one horizontal separator for readability.
+//
+// Example: render a compact table
+//
+//	fmt.Println(console.RenderTable(
+//		[]string{"Name", "State"},
+//		[][]string{{"api", "ready"}},
+//		console.TableCompact(),
+//	))
+//	// Name  State
+//	// ────  ─────
+//	// api   ready
 func TableCompact() TableOption {
 	return func(options *tableOptions) {
 		options.compact = true
@@ -16,6 +39,19 @@ func TableCompact() TableOption {
 // TableWidths sets content widths by zero-based column position.
 // Values less than one leave that column automatic, and configured widths may
 // still shrink when the complete table would exceed the console width.
+//
+// Example: reserve predictable column widths
+//
+//	fmt.Println(console.RenderTable(
+//		[]string{"Name", "State"},
+//		[][]string{{"api", "ready"}},
+//		console.TableWidths(6, 7),
+//	))
+//	// ┌────────┬─────────┐
+//	// │ Name   │ State   │
+//	// ├────────┼─────────┤
+//	// │ api    │ ready   │
+//	// └────────┴─────────┘
 func TableWidths(widths ...int) TableOption {
 	configured := append([]int(nil), widths...)
 	return func(options *tableOptions) {
@@ -25,6 +61,19 @@ func TableWidths(widths ...int) TableOption {
 
 // TableRightAlign right-aligns the headers and values in the selected zero-based columns.
 // Negative and out-of-range columns are ignored.
+//
+// Example: align numeric columns
+//
+//	fmt.Println(console.RenderTable(
+//		[]string{"Item", "Count"},
+//		[][]string{{"api", "12"}},
+//		console.TableRightAlign(1),
+//	))
+//	// ┌──────┬───────┐
+//	// │ Item │ Count │
+//	// ├──────┼───────┤
+//	// │ api  │    12 │
+//	// └──────┴───────┘
 func TableRightAlign(columns ...int) TableOption {
 	configured := append([]int(nil), columns...)
 	return func(options *tableOptions) {
@@ -38,6 +87,19 @@ func TableRightAlign(columns ...int) TableOption {
 
 // TableCenterAlign centers the headers and values in the selected zero-based columns.
 // Negative and out-of-range columns are ignored.
+//
+// Example: center a status column
+//
+//	fmt.Println(console.RenderTable(
+//		[]string{"Service", "State"},
+//		[][]string{{"api", "up"}},
+//		console.TableCenterAlign(1),
+//	))
+//	// ┌─────────┬───────┐
+//	// │ Service │ State │
+//	// ├─────────┼───────┤
+//	// │ api     │  up   │
+//	// └─────────┴───────┘
 func TableCenterAlign(columns ...int) TableOption {
 	configured := append([]int(nil), columns...)
 	return func(options *tableOptions) {
@@ -112,11 +174,35 @@ func (c *Console) RenderTable(headers []string, rows [][]string, options ...Tabl
 }
 
 // Table prints a table through the default console.
+//
+// Example: print the default bordered table
+//
+//	console.Table(
+//		[]string{"Name", "State"},
+//		[][]string{{"api", "ready"}},
+//	)
+//	// ┌──────┬───────┐
+//	// │ Name │ State │
+//	// ├──────┼───────┤
+//	// │ api  │ ready │
+//	// └──────┴───────┘
 func Table(headers []string, rows [][]string, options ...TableOption) {
 	Default().Table(headers, rows, options...)
 }
 
 // RenderTable renders a table using the default console.
+//
+// Example: compose a bordered table
+//
+//	fmt.Println(console.RenderTable(
+//		[]string{"Name", "State"},
+//		[][]string{{"worker", "idle"}},
+//	))
+//	// ┌────────┬───────┐
+//	// │ Name   │ State │
+//	// ├────────┼───────┤
+//	// │ worker │ idle  │
+//	// └────────┴───────┘
 func RenderTable(headers []string, rows [][]string, options ...TableOption) string {
 	return Default().RenderTable(headers, rows, options...)
 }

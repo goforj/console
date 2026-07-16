@@ -8,6 +8,16 @@ import (
 )
 
 // KeyValue contains one ordered label and value for KeyValues.
+//
+// Example: construct an ordered deployment summary
+//
+//	entries := []console.KeyValue{
+//		{Key: "Mode", Value: "production"},
+//		{Key: "Port", Value: 8080},
+//	}
+//	console.KeyValues(entries...)
+//	// Mode  production
+//	// Port  8080
 type KeyValue struct {
 	// Key is the label displayed in the left column.
 	Key string
@@ -16,6 +26,11 @@ type KeyValue struct {
 }
 
 // KV creates one ordered key/value entry.
+//
+// Example: build an ordered summary entry
+//
+//	console.KeyValues(console.KV("Region", "eu-west-1"))
+//	// Region  eu-west-1
 func KV(key string, value any) KeyValue {
 	return KeyValue{Key: key, Value: value}
 }
@@ -158,39 +173,121 @@ func (c *Console) RenderNumberedList(items ...string) string {
 }
 
 // Section prints a section heading through the default console.
+//
+// Example: print a deployment section
+//
+//	console.Section("Deployment")
+//	// ◇ Deployment
 func Section(title string) { Default().Section(title) }
 
 // RenderSection renders a section heading through the default console.
+//
+// Example: compose a section heading
+//
+//	fmt.Println(console.RenderSection("Deployment"))
+//	// ◇ Deployment
 func RenderSection(title string) string { return Default().RenderSection(title) }
 
 // Rule prints a horizontal rule through the default console.
+//
+// Example: separate two phases
+//
+//	previous := console.Default()
+//	defer console.SetDefault(previous)
+//	console.SetDefault(console.New(console.Config{Width: 16}))
+//	console.Rule("Next")
+//	// ── Next ────────
 func Rule(title string) { Default().Rule(title) }
 
 // RenderRule renders a horizontal rule through the default console.
+//
+// Example: compose a phase separator
+//
+//	previous := console.Default()
+//	defer console.SetDefault(previous)
+//	console.SetDefault(console.New(console.Config{Width: 16}))
+//	fmt.Println(console.RenderRule("Next"))
+//	// ── Next ────────
 func RenderRule(title string) string { return Default().RenderRule(title) }
 
 // KeyValues prints ordered key/value entries through the default console.
+//
+// Example: print an ordered deployment summary
+//
+//	console.KeyValues(
+//		console.KV("Mode", "production"),
+//		console.KV("Port", 8080),
+//	)
+//	// Mode  production
+//	// Port  8080
 func KeyValues(entries ...KeyValue) { Default().KeyValues(entries...) }
 
 // RenderKeyValues renders ordered key/value entries through the default console.
+//
+// Example: compose an ordered summary
+//
+//	fmt.Println(console.RenderKeyValues(
+//		console.KV("Mode", "production"),
+//		console.KV("Port", 8080),
+//	))
+//	// Mode  production
+//	// Port  8080
 func RenderKeyValues(entries ...KeyValue) string { return Default().RenderKeyValues(entries...) }
 
 // KeyValueMap prints a sorted key/value map through the default console.
+//
+// Example: print map values in stable key order
+//
+//	console.KeyValueMap(map[string]any{"port": 8080, "mode": "production"})
+//	// mode  production
+//	// port  8080
 func KeyValueMap(values map[string]any) { Default().KeyValueMap(values) }
 
 // RenderKeyValueMap renders a sorted key/value map through the default console.
+//
+// Example: compose deterministic map output
+//
+//	fmt.Println(console.RenderKeyValueMap(map[string]any{"port": 8080, "mode": "production"}))
+//	// mode  production
+//	// port  8080
 func RenderKeyValueMap(values map[string]any) string { return Default().RenderKeyValueMap(values) }
 
 // List prints an unordered list through the default console.
+//
+// Example: print a short checklist
+//
+//	console.List("build", "test", "publish")
+//	// • build
+//	// • test
+//	// • publish
 func List(items ...string) { Default().List(items...) }
 
 // RenderList renders an unordered list through the default console.
+//
+// Example: compose an unordered list
+//
+//	fmt.Println(console.RenderList("build", "test"))
+//	// • build
+//	// • test
 func RenderList(items ...string) string { return Default().RenderList(items...) }
 
 // NumberedList prints an ordered list through the default console.
+//
+// Example: print release steps
+//
+//	console.NumberedList("build", "test", "publish")
+//	// 1. build
+//	// 2. test
+//	// 3. publish
 func NumberedList(items ...string) { Default().NumberedList(items...) }
 
 // RenderNumberedList renders an ordered list through the default console.
+//
+// Example: compose ordered steps
+//
+//	fmt.Println(console.RenderNumberedList("build", "test"))
+//	// 1. build
+//	// 2. test
 func RenderNumberedList(items ...string) string { return Default().RenderNumberedList(items...) }
 
 // printLayout writes one rendered layout value followed by exactly one newline.

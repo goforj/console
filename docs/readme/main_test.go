@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// TestParseAPISymbols verifies manifest grouping, Console parity, and receiver inheritance.
+// TestParseAPISymbols verifies exhaustive indexing, manifest grouping, and source-comment extraction.
 func TestParseAPISymbols(t *testing.T) {
 	t.Parallel()
 
@@ -19,6 +19,11 @@ func TestParseAPISymbols(t *testing.T) {
 	source := `package console
 
 // Console writes semantic output.
+//
+// Example:
+//
+//	fmt.Println("console")
+//	// console
 type Console struct{}
 
 // Infof writes an informational message.
@@ -29,19 +34,26 @@ func (c *Console) Infof() {}
 // @group This public-doc marker is deliberately ignored.
 func (c *Console) Warnf() {}
 
-// Config controls a Console.
-type Config struct{}
-
 // New creates a Console.
 func New() *Console { return nil }
 
 // Infof writes through the default Console.
+//
+// Example: formatted value
+//
+//	Infof("version %d", 2)
+//	// version 2
 func Infof() {}
 
 // Warnf writes through the default Console.
 func Warnf() {}
 
 // Loader reports background activity.
+//
+// Example:
+//
+//	fmt.Println("loader")
+//	// loader
 type Loader struct{}
 
 // Stop finishes a Loader.
@@ -53,12 +65,27 @@ func Version() string { return "" }
 // ANSI styles are composable presentation constants.
 const (
 	// ColorRed colors text red.
+	//
+	// Example:
+	//
+	//	fmt.Println(ColorRed)
+	//	// red
 	ColorRed = "red"
 	// ColorBlue colors text blue.
+	//
+	// Example:
+	//
+	//	fmt.Println(ColorBlue)
+	//	// blue
 	ColorBlue = "blue"
 )
 
 // ErrClosed indicates a closed console.
+//
+// Example:
+//
+//	fmt.Println(ErrClosed)
+//	// closed
 var ErrClosed = errors.New("closed")
 
 // privateHelper stays outside the public index.
@@ -77,7 +104,7 @@ func (i *internalRuntime) Start() {}
 
 	manifest := []apiGroupDefinition{
 		{name: "Activity", symbols: []string{"Loader"}},
-		{name: "Core", symbols: []string{"Config", "Console", "Infof", "New"}},
+		{name: "Core", symbols: []string{"Console", "Infof", "New"}},
 		{name: "Errors", symbols: []string{"ErrClosed"}},
 		{name: "Messages", symbols: []string{"Warnf"}},
 		{name: "Other", symbols: []string{"Version"}},
@@ -88,23 +115,125 @@ func (i *internalRuntime) Start() {}
 		t.Fatal(err)
 	}
 
-	want := []apiSymbol{
-		{name: "Loader", group: "Activity"},
-		{name: "Stop", receiver: "Loader", group: "Activity"},
-		{name: "Config", group: "Core"},
-		{name: "Console", group: "Core"},
-		{name: "Infof", receiver: "Console", group: "Core"},
-		{name: "Infof", group: "Core"},
-		{name: "New", group: "Core"},
-		{name: "ErrClosed", group: "Errors"},
-		{name: "Warnf", receiver: "Console", group: "Messages"},
-		{name: "Warnf", group: "Messages"},
-		{name: "Version", group: "Other"},
-		{name: "ColorBlue", group: "Styling"},
-		{name: "ColorRed", group: "Styling"},
+	want := []string{
+		"Loader|Activity",
+		"Loader.Stop|Activity",
+		"Console|Core",
+		"Infof|Core",
+		"New|Core",
+		"Console.Infof|Core",
+		"ErrClosed|Errors",
+		"Warnf|Messages",
+		"Console.Warnf|Messages",
+		"Version|Other",
+		"ColorBlue|Styling",
+		"ColorRed|Styling",
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("parseAPISymbols() = %#v, want %#v", got, want)
+	identities := make([]string, 0, len(got))
+	for _, symbol := range got {
+		identities = append(identities, symbol.identity()+"|"+symbol.group)
+	}
+	if !reflect.DeepEqual(identities, want) {
+		t.Fatalf("parseAPISymbols() identities = %#v, want %#v", identities, want)
+	}
+
+	var info apiSymbol
+	var red apiSymbol
+	for _, symbol := range got {
+		switch symbol.identity() {
+		case "Infof":
+			info = symbol
+		case "ColorRed":
+			red = symbol
+		}
+	}
+	if info.description != "Infof writes through the default Console." {
+		t.Fatalf("Infof description = %q", info.description)
+	}
+	if len(info.examples) != 1 || info.examples[0].label != "formatted value" ||
+		info.examples[0].code != "Infof(\"version %d\", 2)\n// version 2" {
+		t.Fatalf("Infof examples = %#v", info.examples)
+	}
+	if red.description != "ColorRed colors text red." || len(red.examples) != 1 ||
+		red.examples[0].code != "fmt.Println(ColorRed)\n// red" {
+		t.Fatalf("ColorRed documentation = %#v", red)
+	}
+}
+
+// TestGenDeclsRenderLocalExamples verifies types, constants, and variables link to their own README code.
+func TestGenDeclsRenderLocalExamples(t *testing.T) {
+	t.Parallel()
+
+	symbols := []apiSymbol{
+		{
+			name:        "Config",
+			group:       "Runtime",
+			description: "Config controls a console.",
+			examples:    []apiExample{{code: "fmt.Println(Config{}.Width)\n// 0"}},
+		},
+		{
+			name:        "ColorRed",
+			group:       "Styling",
+			description: "ColorRed contains the red ANSI prefix.",
+			examples:    []apiExample{{code: "fmt.Println(ColorRed != \"\")\n// true"}},
+		},
+		{
+			name:        "ErrClosed",
+			group:       "Terminal",
+			description: "ErrClosed reports a closed terminal.",
+			examples:    []apiExample{{code: "fmt.Println(ErrClosed)\n// closed"}},
+		},
+	}
+
+	plan, err := planAPIExamples(symbols)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := renderAPI(symbols, plan)
+	examples := renderAPIExamples(plan)
+	for _, want := range []string{
+		"[Config](#config)",
+		"[ColorRed](#colorred)",
+		"[ErrClosed](#errclosed)",
+	} {
+		if !strings.Contains(index, want) {
+			t.Fatalf("renderAPI() missing %q:\n%s", want, index)
+		}
+	}
+	for _, want := range []string{
+		`#### <a id="config"></a>Config`,
+		`#### <a id="colorred"></a>ColorRed`,
+		`#### <a id="errclosed"></a>ErrClosed`,
+	} {
+		if !strings.Contains(examples, want) {
+			t.Fatalf("renderAPIExamples() missing %q:\n%s", want, examples)
+		}
+	}
+}
+
+// TestGenDeclsRequireExamples verifies exhaustive parsing cannot create an unresolved declaration link.
+func TestGenDeclsRequireExamples(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	source := `package console
+
+// Config controls a console.
+type Config struct{}
+`
+	if err := os.WriteFile(filepath.Join(root, "console.go"), []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	symbols, err := parseAPISymbolsWithManifest(root, []apiGroupDefinition{
+		{name: "Runtime", symbols: []string{"Config"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = planAPIExamples(symbols)
+	if err == nil || !strings.Contains(err.Error(), "Config, which has no Example: block") {
+		t.Fatalf("planAPIExamples() error = %v, want missing Config example", err)
 	}
 }
 
@@ -129,7 +258,7 @@ func TestAssignAPIGroupsRejectsInvalidManifest(t *testing.T) {
 			manifest: []apiGroupDefinition{
 				{name: "Core", symbols: []string{"Thing", "Removed"}},
 			},
-			want: "stale package symbol Removed",
+			want: "stale routing symbol Removed",
 		},
 		{
 			name:    "duplicate",
@@ -285,29 +414,175 @@ func TestOrderREADMEExamplesRejectsInvalidSelections(t *testing.T) {
 	}
 }
 
-// TestRenderAPI verifies global-first columns, direct documentation links, and collision-free method anchors.
+// TestRenderAPI verifies global-first columns and local links to resolved source-comment examples.
 func TestRenderAPI(t *testing.T) {
 	t.Parallel()
 
 	symbols := []apiSymbol{
-		{name: "Start", receiver: "Spinner", group: "Activity"},
-		{name: "Console", group: "Core"},
-		{name: "Start", receiver: "Loader", group: "Activity"},
+		{name: "Start", group: "Activity", examples: []apiExample{{code: "Start(\"job\")\n// started"}}},
+		{name: "Start", receiver: "Console", group: "Activity"},
+		{name: "Start", receiver: "Spinner", group: "Activity", examples: []apiExample{{code: "spinner.Start()\n// started"}}},
+		{name: "Start", receiver: "Loader", group: "Activity", examples: []apiExample{{code: "loader.Start()\n// started"}}},
 	}
 
-	got := renderAPI(symbols)
+	plan, err := planAPIExamples(symbols)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := renderAPI(symbols, plan)
 	want := strings.Join([]string{
 		"## API index",
 		"",
-		"The complete API documentation is available on [pkg.go.dev](https://pkg.go.dev/github.com/goforj/console). Package helpers come first; `Console` methods provide the isolated equivalent, while loader and progress lifecycle methods remain on their returned values.",
+		"Complete declaration documentation is available on [pkg.go.dev](https://pkg.go.dev/github.com/goforj/console). The links below open source-comment examples in this README. Package declarations and global helpers come first; `Console` methods provide the isolated equivalent, while loader and progress lifecycle methods remain on their returned values.",
 		"",
 		"| Group | Package API | Instance and lifecycle API |",
 		"| --- | --- | --- |",
-		`| Activity | — | <a id="loader-start"></a>[Loader.Start](https://pkg.go.dev/github.com/goforj/console#Loader.Start) · <a id="spinner-start"></a>[Spinner.Start](https://pkg.go.dev/github.com/goforj/console#Spinner.Start) |`,
-		`| Core | <a id="console"></a>[Console](https://pkg.go.dev/github.com/goforj/console#Console) | — |`,
+		`| Activity | [Start](#start) | [Console.Start](#start) · [Loader.Start](#loader-start) · [Spinner.Start](#spinner-start) |`,
 	}, "\n")
 	if got != want {
 		t.Fatalf("renderAPI() =\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// TestPlanAPIExamplesInheritsGlobalTargets verifies wrapper methods reuse concise package examples.
+func TestPlanAPIExamplesInheritsGlobalTargets(t *testing.T) {
+	t.Parallel()
+
+	symbols := []apiSymbol{
+		{name: "Info", group: "Messages", examples: []apiExample{{code: "Info(\"ready\")\n// ready"}}},
+		{name: "Info", receiver: "Console", group: "Messages"},
+		{name: "NewLoader", group: "Loaders", examples: []apiExample{{code: "loader := NewLoader(\"work\")\n// work"}}},
+		{name: "Loader", receiver: "Console", group: "Loaders"},
+		{name: "NewProgress", group: "Progress", examples: []apiExample{{code: "progress := NewProgress(2, \"work\")\n// work"}}},
+		{name: "Progress", receiver: "Console", group: "Progress"},
+	}
+
+	plan, err := planAPIExamples(symbols)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantAnchors := map[string]string{
+		"Info":             "info",
+		"Console.Info":     "info",
+		"NewLoader":        "newloader",
+		"Console.Loader":   "newloader",
+		"NewProgress":      "newprogress",
+		"Console.Progress": "newprogress",
+	}
+	if !reflect.DeepEqual(plan.anchors, wantAnchors) {
+		t.Fatalf("planAPIExamples() anchors = %#v, want %#v", plan.anchors, wantAnchors)
+	}
+	if len(plan.targets) != 3 {
+		t.Fatalf("planAPIExamples() rendered %d targets, want 3", len(plan.targets))
+	}
+}
+
+// TestPlanAPIExamplesRejectsMissingExamples keeps every index link attached to rendered code.
+func TestPlanAPIExamplesRejectsMissingExamples(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		symbols []apiSymbol
+		want    string
+	}{
+		{
+			name:    "target has no example",
+			symbols: []apiSymbol{{name: "Info", group: "Messages"}},
+			want:    "has no Example: block",
+		},
+		{
+			name: "mapped target is absent",
+			symbols: []apiSymbol{
+				{name: "Loader", receiver: "Console", group: "Loaders"},
+			},
+			want: "missing example target NewLoader",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := planAPIExamples(test.symbols)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("planAPIExamples() error = %v, want text %q", err, test.want)
+			}
+		})
+	}
+}
+
+// TestPlanAPIExamplesRequiresPlainOutputComments enforces the README's visible call-and-output convention.
+func TestPlanAPIExamplesRequiresPlainOutputComments(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		code string
+		want string
+	}{
+		{name: "missing", code: `fmt.Println("ready")`, want: "no plain // output comment"},
+		{name: "typed marker", code: "fmt.Println(\"ready\")\n// #string ready", want: "uses a typed // # output marker"},
+		{name: "mixed typed marker", code: "fmt.Println(\"ready\")\n// #string ready\n// ready", want: "uses a typed // # output marker"},
+		{name: "visible output", code: "fmt.Println(\"ready\")\n// ready"},
+		{name: "blank output", code: "fmt.Println()\n//"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := planAPIExamples([]apiSymbol{{
+				name:     "Print",
+				group:    "Output",
+				examples: []apiExample{{code: test.code}},
+			}})
+			if test.want == "" {
+				if err != nil {
+					t.Fatalf("planAPIExamples() error = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("planAPIExamples() error = %v, want text %q", err, test.want)
+			}
+		})
+	}
+}
+
+// TestRenderAPIExamplesKeepsReceiverAnchorsDistinct verifies lifecycle methods can share names safely.
+func TestRenderAPIExamplesKeepsReceiverAnchorsDistinct(t *testing.T) {
+	t.Parallel()
+
+	symbols := []apiSymbol{
+		{
+			name:        "Start",
+			receiver:    "Loader",
+			group:       "Activity",
+			description: "Start begins loading.",
+			examples:    []apiExample{{code: "loader.Start()\n// started"}},
+		},
+		{
+			name:        "Start",
+			receiver:    "Progress",
+			group:       "Activity",
+			description: "Start begins progress.",
+			examples:    []apiExample{{code: "progress.Start()\n// started"}},
+		},
+	}
+
+	plan, err := planAPIExamples(symbols)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := renderAPIExamples(plan)
+	for _, want := range []string{
+		`#### <a id="loader-start"></a>Loader.Start`,
+		`#### <a id="progress-start"></a>Progress.Start`,
+		"```go\nloader.Start()\n// started\n```",
+		"```go\nprogress.Start()\n// started\n```",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("renderAPIExamples() missing %q:\n%s", want, got)
+		}
 	}
 }
 
@@ -429,7 +704,7 @@ func main() {
 func TestRenderAPIWithoutSymbols(t *testing.T) {
 	t.Parallel()
 
-	got := renderAPI(nil)
+	got := renderAPI(nil, apiExamplePlan{})
 	if !strings.Contains(got, "No documented exported API is available yet.") {
 		t.Fatalf("renderAPI(nil) = %q", got)
 	}

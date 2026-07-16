@@ -8,6 +8,24 @@ import (
 // Loader presents one transient activity line on terminals and stable semantic lines in redirected output.
 // A Loader is concurrency-safe, single-use, and must be constructed with Console.Loader or NewLoader;
 // the first call to Stop, Success, Warn, or Fail wins.
+//
+// Example: run a loader to completion
+//
+//	animations := false
+//	color := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		ColorEnabled:      &color,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	var loader *console.Loader = console.NewLoader("Building application")
+//	if err := loader.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Building application
+//	loader.Success("Application ready")
+//	// ✔ Application ready
 type Loader struct {
 	console *Console
 
@@ -62,12 +80,45 @@ func (c *Console) Loader(message string) *Loader {
 
 // NewLoader constructs a loader using a snapshot of the current default console.
 // It does not start the loader.
+//
+// Example:
+//
+//	animations := false
+//	color := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		ColorEnabled:      &color,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	loader := console.NewLoader("Downloading modules")
+//	if err := loader.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Downloading modules
+//	loader.Success("Modules ready")
+//	// ✔ Modules ready
 func NewLoader(message string) *Loader {
 	return Default().Loader(message)
 }
 
 // Start begins the loader and is harmless when called more than once.
 // Animated loaders can return ErrTransientActive when another live display owns the same console.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	loader := console.NewLoader("Building application")
+//	if err := loader.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Building application
+//	loader.Stop()
 func (l *Loader) Start() error {
 	l.mu.Lock()
 	if l.state != loaderReady {
@@ -99,6 +150,23 @@ func (l *Loader) Start() error {
 
 // Update changes the loader message and immediately redraws an active animation.
 // Updates after a terminal operation are ignored.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	loader := console.NewLoader("Downloading modules")
+//	if err := loader.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Downloading modules
+//	loader.Update("Verifying modules")
+//	loader.Success("")
+//	// ✔ Verifying modules
 func (l *Loader) Update(message string) {
 	l.mu.Lock()
 	if l.state == loaderFinished {
@@ -114,24 +182,87 @@ func (l *Loader) Update(message string) {
 }
 
 // Stop removes the transient loader without printing a completion message.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	loader := console.NewLoader("Checking configuration")
+//	if err := loader.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Checking configuration
+//	loader.Stop()
 func (l *Loader) Stop() {
 	l.finish(loaderFinishStop, "")
 }
 
 // Success completes the loader with a success message.
 // An empty message reuses the loader's current message.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	loader := console.NewLoader("Publishing release")
+//	if err := loader.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Publishing release
+//	loader.Success("Release published")
+//	// ✔ Release published
 func (l *Loader) Success(message string) {
 	l.finish(loaderFinishSuccess, message)
 }
 
 // Warn completes the loader with a warning message.
 // An empty message reuses the loader's current message.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	loader := console.NewLoader("Checking optional tools")
+//	if err := loader.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Checking optional tools
+//	loader.Warn("Optional tool not found")
+//	// ! Optional tool not found
 func (l *Loader) Warn(message string) {
 	l.finish(loaderFinishWarn, message)
 }
 
 // Fail completes the loader with an error message on stderr.
 // An empty message reuses the loader's current message.
+//
+// Example:
+//
+//	animations := false
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		AnimationsEnabled: &animations,
+//		UnicodeEnabled:    &unicode,
+//	}))
+//	loader := console.NewLoader("Uploading release")
+//	if err := loader.Start(); err != nil {
+//		panic(err)
+//	}
+//	// · Uploading release
+//	loader.Fail("Registry refused upload")
+//	// ✖ Registry refused upload
 func (l *Loader) Fail(message string) {
 	l.finish(loaderFinishFail, message)
 }

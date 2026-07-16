@@ -12,6 +12,14 @@ import (
 
 // ErrNonInteractive is returned when a prompt would read from a console that is not interactive.
 // Set Config.InteractiveEnabled when intentionally driving prompts with an injected reader.
+//
+// Example: recognize a non-interactive prompt
+//
+//	interactive := false
+//	console.SetDefault(console.New(console.Config{InteractiveEnabled: &interactive}))
+//	_, err := console.Ask("Name")
+//	fmt.Println(errors.Is(err, console.ErrNonInteractive))
+//	// true
 var ErrNonInteractive = errors.New("console: prompting requires an interactive console")
 
 // Ask prompts for one trimmed line of input.
@@ -135,29 +143,133 @@ func (c *Console) ChooseIndex(prompt string, options []string, defaultIndex int)
 }
 
 // Ask prompts through the default console.
+//
+// Example:
+//
+//	var output bytes.Buffer
+//	interactive := true
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		Stdin:              strings.NewReader("Ada\n"),
+//		Stdout:             &output,
+//		InteractiveEnabled: &interactive,
+//		UnicodeEnabled:     &unicode,
+//	}))
+//	name, err := console.Ask("Name")
+//	fmt.Printf("%q\n", output.String())
+//	// "› Name: "
+//	fmt.Println(name, err)
+//	// Ada <nil>
 func Ask(prompt string) (string, error) { return Default().Ask(prompt) }
 
 // AskDefault prompts with a default through the default console.
+//
+// Example:
+//
+//	var output bytes.Buffer
+//	interactive := true
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		Stdin:              strings.NewReader("\n"),
+//		Stdout:             &output,
+//		InteractiveEnabled: &interactive,
+//		UnicodeEnabled:     &unicode,
+//	}))
+//	environment, err := console.AskDefault("Environment", "production")
+//	fmt.Printf("%q\n", output.String())
+//	// "› Environment [production]: "
+//	fmt.Println(environment, err)
+//	// production <nil>
 func AskDefault(prompt, defaultValue string) (string, error) {
 	return Default().AskDefault(prompt, defaultValue)
 }
 
 // AskSecret prompts without echoing input through the default console.
+//
+// Example:
+//
+//	var output bytes.Buffer
+//	interactive := true
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		Stdout:             &output,
+//		InteractiveEnabled: &interactive,
+//		UnicodeEnabled:     &unicode,
+//		ReadSecret: func() (string, error) {
+//			return "token-value", nil
+//		},
+//	}))
+//	secret, err := console.AskSecret("API token")
+//	fmt.Printf("%q\n", output.String())
+//	// "› API token: \n"
+//	fmt.Println(len(secret), err)
+//	// 11 <nil>
 func AskSecret(prompt string) (string, error) {
 	return Default().AskSecret(prompt)
 }
 
 // Confirm asks for confirmation through the default console.
+//
+// Example:
+//
+//	var output bytes.Buffer
+//	interactive := true
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		Stdin:              strings.NewReader("yes\n"),
+//		Stdout:             &output,
+//		InteractiveEnabled: &interactive,
+//		UnicodeEnabled:     &unicode,
+//	}))
+//	confirmed, err := console.Confirm("Deploy now", false)
+//	fmt.Printf("%q\n", output.String())
+//	// "› Deploy now [y/N]: "
+//	fmt.Println(confirmed, err)
+//	// true <nil>
 func Confirm(prompt string, defaultValue bool) (bool, error) {
 	return Default().Confirm(prompt, defaultValue)
 }
 
 // Choose asks the user to select an option through the default console.
+//
+// Example:
+//
+//	var output bytes.Buffer
+//	interactive := true
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		Stdin:              strings.NewReader("2\n"),
+//		Stdout:             &output,
+//		InteractiveEnabled: &interactive,
+//		UnicodeEnabled:     &unicode,
+//	}))
+//	channel, err := console.Choose("Release channel", []string{"stable", "beta"}, 0)
+//	fmt.Printf("%q\n", output.String())
+//	// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: "
+//	fmt.Println(channel, err)
+//	// beta <nil>
 func Choose(prompt string, options []string, defaultIndex int) (string, error) {
 	return Default().Choose(prompt, options, defaultIndex)
 }
 
 // ChooseIndex asks the user to select an option index through the default console.
+//
+// Example:
+//
+//	var output bytes.Buffer
+//	interactive := true
+//	unicode := true
+//	console.SetDefault(console.New(console.Config{
+//		Stdin:              strings.NewReader("2\n"),
+//		Stdout:             &output,
+//		InteractiveEnabled: &interactive,
+//		UnicodeEnabled:     &unicode,
+//	}))
+//	index, err := console.ChooseIndex("Release channel", []string{"stable", "beta"}, 0)
+//	fmt.Printf("%q\n", output.String())
+//	// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: "
+//	fmt.Println(index, err)
+//	// 1 <nil>
 func ChooseIndex(prompt string, options []string, defaultIndex int) (int, error) {
 	return Default().ChooseIndex(prompt, options, defaultIndex)
 }

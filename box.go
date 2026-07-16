@@ -3,9 +3,27 @@ package console
 import "strings"
 
 // BoxOption configures one rendered box.
+//
+// Example: collect box options for reuse
+//
+//	options := []console.BoxOption{
+//		console.BoxTitle("Status"),
+//		console.BoxColor(""),
+//	}
+//	fmt.Println(console.RenderBox("ready", options...))
+//	// ┌─ Status ┐
+//	// │ ready   │
+//	// └─────────┘
 type BoxOption func(*boxOptions)
 
 // BoxTitle adds a title to the top border.
+//
+// Example: title a status box
+//
+//	fmt.Println(console.RenderBox("ready", console.BoxTitle("Status"), console.BoxColor("")))
+//	// ┌─ Status ┐
+//	// │ ready   │
+//	// └─────────┘
 func BoxTitle(title string) BoxOption {
 	return func(options *boxOptions) {
 		options.title = title
@@ -16,6 +34,13 @@ func BoxTitle(title string) BoxOption {
 // Values below the structural minimum expand enough to preserve a valid frame.
 // Values less than one select an automatic width bounded by the console width.
 // Larger values are bounded by the console width when the structural minimum permits.
+//
+// Example: fix a box width
+//
+//	fmt.Println(console.RenderBox("ready", console.BoxWidth(16), console.BoxColor("")))
+//	// ┌──────────────┐
+//	// │ ready        │
+//	// └──────────────┘
 func BoxWidth(width int) BoxOption {
 	return func(options *boxOptions) {
 		options.width = width
@@ -24,6 +49,13 @@ func BoxWidth(width int) BoxOption {
 
 // BoxPadding sets the horizontal padding on both sides of the content.
 // Negative values are treated as zero, and padding is capped when necessary to fit the console width.
+//
+// Example: remove box padding
+//
+//	fmt.Println(console.RenderBox("ready", console.BoxPadding(0), console.BoxColor("")))
+//	// ┌─────┐
+//	// │ready│
+//	// └─────┘
 func BoxPadding(padding int) BoxOption {
 	return func(options *boxOptions) {
 		options.padding = max(padding, 0)
@@ -32,6 +64,13 @@ func BoxPadding(padding int) BoxOption {
 
 // BoxColor sets the ANSI color used for borders when styling is enabled.
 // An empty color leaves borders unstyled.
+//
+// Example: color a healthy status border
+//
+//	fmt.Println(console.StripANSI(console.RenderBox("healthy", console.BoxColor(console.ColorGreen))))
+//	// ┌─────────┐
+//	// │ healthy │
+//	// └─────────┘
 func BoxColor(color string) BoxOption {
 	return func(options *boxOptions) {
 		options.color = color
@@ -108,9 +147,23 @@ func (c *Console) RenderBox(content string, options ...BoxOption) string {
 }
 
 // Box prints a box through the default console.
+//
+// Example: print a boxed result
+//
+//	console.Box("ready", console.BoxTitle("Status"), console.BoxColor(""))
+//	// ┌─ Status ┐
+//	// │ ready   │
+//	// └─────────┘
 func Box(content string, options ...BoxOption) { Default().Box(content, options...) }
 
 // RenderBox renders a box using the default console.
+//
+// Example: compose a box without printing it directly
+//
+//	fmt.Println(console.RenderBox("complete", console.BoxColor("")))
+//	// ┌──────────┐
+//	// │ complete │
+//	// └──────────┘
 func RenderBox(content string, options ...BoxOption) string {
 	return Default().RenderBox(content, options...)
 }

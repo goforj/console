@@ -27,6 +27,7 @@ const (
 
 var (
 	readmeExampleHeader = regexp.MustCompile(`(?im)^\s*@readme\s+([a-z][a-z0-9-]*)\s*$`)
+	apiExampleHeader    = regexp.MustCompile(`(?i)^\s*Example:\s*(.*)$`)
 )
 
 // apiGroupDefinition keeps README navigation policy out of public GoDoc.
@@ -110,11 +111,26 @@ var readmeExampleSections = []struct {
 	{id: "instance", title: "Isolated console instances"},
 }
 
-// apiSymbol contains the public identity and grouping needed for the compact README index.
+// apiSymbol contains one exported declaration and the GoDoc content rendered in the README.
 type apiSymbol struct {
-	name     string
-	receiver string
-	group    string
+	name        string
+	receiver    string
+	group       string
+	description string
+	examples    []apiExample
+}
+
+// apiExample contains one source-comment example and its position for deterministic ordering.
+type apiExample struct {
+	label string
+	code  string
+	line  int
+}
+
+// apiExamplePlan maps every indexed symbol to one rendered example target.
+type apiExamplePlan struct {
+	anchors map[string]string
+	targets []apiSymbol
 }
 
 // readmeExample contains one tested standard Go example prepared for Markdown rendering.
@@ -158,11 +174,16 @@ func run() error {
 		return fmt.Errorf("read README.md: %w", err)
 	}
 
+	documentationSection, err := renderDocumentation(symbols, examples)
+	if err != nil {
+		return fmt.Errorf("render API documentation: %w", err)
+	}
+
 	updated, err := replaceMarkedSection(
 		string(readme),
 		apiStart,
 		apiEnd,
-		"\n\n"+renderDocumentation(symbols, examples)+"\n",
+		"\n\n"+documentationSection+"\n",
 		"generated documentation",
 	)
 	if err != nil {
@@ -493,10 +514,10 @@ func parseAPISymbolsWithManifest(root string, manifest []apiGroupDefinition) ([]
 		for _, declaration := range file.Decls {
 			switch declaration := declaration.(type) {
 			case *ast.GenDecl:
-				symbols = append(symbols, documentedTypes(declaration)...)
-				symbols = append(symbols, documentedValues(declaration)...)
+				symbols = append(symbols, documentedTypes(fileSet, declaration)...)
+				symbols = append(symbols, documentedValues(fileSet, declaration)...)
 			case *ast.FuncDecl:
-				symbol, include, err := documentedFunction(declaration)
+				symbol, include, err := documentedFunction(fileSet, declaration)
 				if err != nil {
 					return nil, err
 				}
@@ -514,8 +535,33 @@ func parseAPISymbolsWithManifest(root string, manifest []apiGroupDefinition) ([]
 	return symbols, nil
 }
 
-// documentedValues returns public constants and variables that have GoDoc.
-func documentedValues(declaration *ast.GenDecl) []apiSymbol {
+// documentedTypes returns public types with the description and examples attached to their declaration.
+func documentedTypes(fileSet *token.FileSet, declaration *ast.GenDecl) []apiSymbol {
+	if declaration.Tok != token.TYPE {
+		return nil
+	}
+
+	var symbols []apiSymbol
+	for _, specification := range declaration.Specs {
+		typeSpecification, ok := specification.(*ast.TypeSpec)
+		if !ok || !ast.IsExported(typeSpecification.Name.Name) {
+			continue
+		}
+		documentationGroup := typeSpecification.Doc
+		if documentationGroup == nil {
+			documentationGroup = declaration.Doc
+		}
+		if documentationGroup == nil {
+			continue
+		}
+
+		symbols = append(symbols, documentedPackageSymbol(fileSet, typeSpecification.Name.Name, documentationGroup))
+	}
+	return symbols
+}
+
+// documentedValues returns public constants and variables with their declaration-level GoDoc examples.
+func documentedValues(fileSet *token.FileSet, declaration *ast.GenDecl) []apiSymbol {
 	if declaration.Tok != token.CONST && declaration.Tok != token.VAR {
 		return nil
 	}
@@ -536,11 +582,20 @@ func documentedValues(declaration *ast.GenDecl) []apiSymbol {
 
 		for _, name := range valueSpecification.Names {
 			if ast.IsExported(name.Name) {
-				symbols = append(symbols, apiSymbol{name: name.Name})
+				symbols = append(symbols, documentedPackageSymbol(fileSet, name.Name, documentationGroup))
 			}
 		}
 	}
 	return symbols
+}
+
+// documentedPackageSymbol carries shared declaration GoDoc into one independently linked API symbol.
+func documentedPackageSymbol(fileSet *token.FileSet, name string, documentationGroup *ast.CommentGroup) apiSymbol {
+	return apiSymbol{
+		name:        name,
+		description: extractAPIDescription(documentationGroup),
+		examples:    extractAPIExamples(fileSet, documentationGroup),
+	}
 }
 
 // selectPackage prefers the largest non-main package so incidental root tools cannot displace the library.
@@ -575,35 +630,8 @@ func selectPackage(packages map[string]*ast.Package) (string, error) {
 	return candidates[0].name, nil
 }
 
-// documentedTypes returns only public types with GoDoc so the index never advertises undocumented internals.
-func documentedTypes(declaration *ast.GenDecl) []apiSymbol {
-	if declaration.Tok != token.TYPE {
-		return nil
-	}
-
-	var symbols []apiSymbol
-	for _, specification := range declaration.Specs {
-		typeSpecification, ok := specification.(*ast.TypeSpec)
-		if !ok || !ast.IsExported(typeSpecification.Name.Name) {
-			continue
-		}
-
-		documentationGroup := typeSpecification.Doc
-		if documentationGroup == nil {
-			documentationGroup = declaration.Doc
-		}
-		if documentationGroup == nil {
-			continue
-		}
-
-		symbols = append(symbols, apiSymbol{name: typeSpecification.Name.Name})
-	}
-
-	return symbols
-}
-
 // documentedFunction returns a public function or method with GoDoc.
-func documentedFunction(function *ast.FuncDecl) (apiSymbol, bool, error) {
+func documentedFunction(fileSet *token.FileSet, function *ast.FuncDecl) (apiSymbol, bool, error) {
 	if function.Doc == nil || !ast.IsExported(function.Name.Name) {
 		return apiSymbol{}, false, nil
 	}
@@ -616,7 +644,109 @@ func documentedFunction(function *ast.FuncDecl) (apiSymbol, bool, error) {
 		return apiSymbol{}, false, nil
 	}
 
-	return apiSymbol{name: function.Name.Name, receiver: receiver}, true, nil
+	return apiSymbol{
+		name:        function.Name.Name,
+		receiver:    receiver,
+		description: extractAPIDescription(function.Doc),
+		examples:    extractAPIExamples(fileSet, function.Doc),
+	}, true, nil
+}
+
+// extractAPIDescription returns the reader-facing prose before source-comment examples.
+func extractAPIDescription(group *ast.CommentGroup) string {
+	var lines []string
+	for _, comment := range group.List {
+		line := strings.TrimSpace(apiCommentLine(comment.Text))
+		if apiExampleHeader.MatchString(line) {
+			break
+		}
+		if len(lines) == 0 && line == "" {
+			continue
+		}
+		lines = append(lines, line)
+	}
+
+	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+// extractAPIExamples returns every source-comment example attached to one declaration.
+func extractAPIExamples(fileSet *token.FileSet, group *ast.CommentGroup) []apiExample {
+	var examples []apiExample
+	var collected []string
+	var label string
+	var line int
+	inExample := false
+
+	flush := func() {
+		if len(collected) == 0 {
+			return
+		}
+		code := strings.Join(normalizeAPIExampleIndent(collected), "\n")
+		examples = append(examples, apiExample{
+			label: label,
+			code:  strings.Trim(code, "\n"),
+			line:  line,
+		})
+		collected = nil
+		label = ""
+		inExample = false
+	}
+
+	for _, comment := range group.List {
+		raw := apiCommentLine(comment.Text)
+		if match := apiExampleHeader.FindStringSubmatch(strings.TrimSpace(raw)); match != nil {
+			flush()
+			inExample = true
+			label = strings.TrimSpace(match[1])
+			line = fileSet.Position(comment.Slash).Line
+			continue
+		}
+		if inExample {
+			collected = append(collected, raw)
+		}
+	}
+	flush()
+
+	sort.Slice(examples, func(i, j int) bool {
+		return examples[i].line < examples[j].line
+	})
+	return examples
+}
+
+// apiCommentLine removes line-comment syntax while retaining code indentation.
+func apiCommentLine(text string) string {
+	line := strings.TrimPrefix(text, "//")
+	if strings.HasPrefix(line, " ") {
+		line = line[1:]
+	}
+	return line
+}
+
+// normalizeAPIExampleIndent removes shared indentation without changing nested code.
+func normalizeAPIExampleIndent(lines []string) []string {
+	minimum := -1
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+		if minimum == -1 || indent < minimum {
+			minimum = indent
+		}
+	}
+	if minimum <= 0 {
+		return lines
+	}
+
+	normalized := make([]string, len(lines))
+	for index, line := range lines {
+		if len(line) >= minimum {
+			normalized[index] = line[minimum:]
+			continue
+		}
+		normalized[index] = strings.TrimLeft(line, " \t")
+	}
+	return normalized
 }
 
 // assignAPIGroups validates the manifest and applies its categories to every documented symbol.
@@ -634,15 +764,19 @@ func assignAPIGroups(symbols []apiSymbol, manifest []apiGroupDefinition) error {
 		}
 	}
 
-	packageSymbols := make(map[string]struct{})
+	routingKeys := make(map[string]struct{})
 	for _, symbol := range symbols {
 		if symbol.receiver == "" {
-			packageSymbols[symbol.name] = struct{}{}
+			routingKeys[symbol.name] = struct{}{}
+			continue
+		}
+		if symbol.receiver != "Console" {
+			routingKeys[symbol.receiver] = struct{}{}
 		}
 	}
 	for name := range groups {
-		if _, ok := packageSymbols[name]; !ok {
-			return fmt.Errorf("API group manifest contains stale package symbol %s", name)
+		if _, ok := routingKeys[name]; !ok {
+			return fmt.Errorf("API group manifest contains stale routing symbol %s", name)
 		}
 	}
 
@@ -661,7 +795,7 @@ func assignAPIGroups(symbols []apiSymbol, manifest []apiGroupDefinition) error {
 	return nil
 }
 
-// receiverName returns the declared receiver type because both README and pkg.go.dev anchors use it.
+// receiverName returns the declared receiver type so local README anchors remain collision-safe.
 func receiverName(function *ast.FuncDecl) (string, error) {
 	if function.Recv == nil || len(function.Recv.List) == 0 {
 		return "", nil
@@ -697,10 +831,13 @@ func sortSymbols(symbols []apiSymbol) {
 		if symbols[i].group != symbols[j].group {
 			return symbols[i].group < symbols[j].group
 		}
+		if (symbols[i].receiver == "") != (symbols[j].receiver == "") {
+			return symbols[i].receiver == ""
+		}
 		if symbols[i].displayName() != symbols[j].displayName() {
 			return symbols[i].displayName() < symbols[j].displayName()
 		}
-		return symbols[i].packageAnchor() < symbols[j].packageAnchor()
+		return symbols[i].identity() < symbols[j].identity()
 	})
 }
 
@@ -712,8 +849,8 @@ func (symbol apiSymbol) displayName() string {
 	return symbol.receiver + "." + symbol.name
 }
 
-// packageAnchor mirrors pkg.go.dev's receiver-qualified declaration fragments.
-func (symbol apiSymbol) packageAnchor() string {
+// identity distinguishes methods from package helpers with the same exported name.
+func (symbol apiSymbol) identity() string {
 	return symbol.displayName()
 }
 
@@ -725,21 +862,159 @@ func (symbol apiSymbol) readmeAnchor() string {
 	return strings.ToLower(symbol.receiver + "-" + symbol.name)
 }
 
-// renderDocumentation keeps the exhaustive API index compact and follows it with selected workflow examples.
-func renderDocumentation(symbols []apiSymbol, examples []readmeExample) string {
-	return renderAPI(symbols) + "\n\n" + renderExamples(examples)
+// planAPIExamples resolves every index entry to exactly one rendered source-comment example.
+func planAPIExamples(symbols []apiSymbol) (apiExamplePlan, error) {
+	ordered := append([]apiSymbol(nil), symbols...)
+	sortSymbols(ordered)
+
+	byIdentity := make(map[string]apiSymbol, len(ordered))
+	for _, symbol := range ordered {
+		identity := symbol.identity()
+		if _, ok := byIdentity[identity]; ok {
+			return apiExamplePlan{}, fmt.Errorf("documented API symbol %s appears more than once", identity)
+		}
+		byIdentity[identity] = symbol
+	}
+
+	plan := apiExamplePlan{anchors: make(map[string]string, len(ordered))}
+	rendered := make(map[string]struct{}, len(ordered))
+	anchorOwners := make(map[string]string, len(ordered))
+	for _, symbol := range ordered {
+		targetIdentity := apiExampleTargetIdentity(symbol, byIdentity)
+		target, ok := byIdentity[targetIdentity]
+		if !ok {
+			return apiExamplePlan{}, fmt.Errorf(
+				"documented API symbol %s resolves to missing example target %s",
+				symbol.identity(),
+				targetIdentity,
+			)
+		}
+		if !hasAPIExample(target) {
+			return apiExamplePlan{}, fmt.Errorf(
+				"documented API symbol %s resolves to %s, which has no Example: block",
+				symbol.identity(),
+				targetIdentity,
+			)
+		}
+
+		anchor := target.readmeAnchor()
+		plan.anchors[symbol.identity()] = anchor
+		if _, ok := rendered[targetIdentity]; ok {
+			continue
+		}
+		if err := requireAPIExampleOutput(target); err != nil {
+			return apiExamplePlan{}, err
+		}
+		if owner, ok := anchorOwners[anchor]; ok {
+			return apiExamplePlan{}, fmt.Errorf(
+				"API example anchor %q is shared by %s and %s",
+				anchor,
+				owner,
+				targetIdentity,
+			)
+		}
+		anchorOwners[anchor] = targetIdentity
+		rendered[targetIdentity] = struct{}{}
+		plan.targets = append(plan.targets, target)
+	}
+
+	return plan, nil
 }
 
-// renderAPI places package helpers before methods so the concise default path is easiest to scan.
-func renderAPI(symbols []apiSymbol) string {
+// apiExampleTargetIdentity applies the global-first README policy without hiding instance API entries.
+func apiExampleTargetIdentity(symbol apiSymbol, symbols map[string]apiSymbol) string {
+	if symbol.receiver != "Console" {
+		return symbol.identity()
+	}
+
+	switch symbol.name {
+	case "Loader":
+		return "NewLoader"
+	case "Progress":
+		return "NewProgress"
+	}
+	if _, ok := symbols[symbol.name]; ok {
+		return symbol.name
+	}
+	return symbol.identity()
+}
+
+// hasAPIExample rejects annotations containing only whitespace so every local link reaches useful code.
+func hasAPIExample(symbol apiSymbol) bool {
+	for _, example := range symbol.examples {
+		if strings.TrimSpace(example.code) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// requireAPIExampleOutput enforces the call-then-output convention on every rendered block.
+func requireAPIExampleOutput(symbol apiSymbol) error {
+	for _, example := range symbol.examples {
+		if strings.TrimSpace(example.code) == "" {
+			continue
+		}
+
+		name := symbol.identity()
+		if example.label != "" {
+			name += " (" + example.label + ")"
+		}
+		if hasTypedOutputMarker(example.code) {
+			return fmt.Errorf("API example %s uses a typed // # output marker; use plain // output", name)
+		}
+		if hasPlainOutputComment(example.code) {
+			continue
+		}
+		return fmt.Errorf("API example %s has no plain // output comment", name)
+	}
+	return nil
+}
+
+// hasTypedOutputMarker detects the typed annotations used by generators with a different README convention.
+func hasTypedOutputMarker(code string) bool {
+	for _, line := range strings.Split(code, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "// #") {
+			return true
+		}
+	}
+	return false
+}
+
+// hasPlainOutputComment recognizes visible or blank output rows written as ordinary line comments.
+func hasPlainOutputComment(code string) bool {
+	for _, line := range strings.Split(code, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "//" {
+			return true
+		}
+		if strings.HasPrefix(line, "// ") {
+			return true
+		}
+	}
+	return false
+}
+
+// renderDocumentation keeps the declaration index compact and follows it with both example collections.
+func renderDocumentation(symbols []apiSymbol, examples []readmeExample) (string, error) {
+	plan, err := planAPIExamples(symbols)
+	if err != nil {
+		return "", err
+	}
+
+	return renderAPI(symbols, plan) + "\n\n" + renderAPIExamples(plan) + "\n\n" + renderExamples(examples), nil
+}
+
+// renderAPI places package declarations before methods so the concise default path is easiest to scan.
+func renderAPI(symbols []apiSymbol, plan apiExamplePlan) string {
 	ordered := append([]apiSymbol(nil), symbols...)
 	sortSymbols(ordered)
 
 	var output strings.Builder
 	output.WriteString("## API index\n\n")
-	output.WriteString("The complete API documentation is available on [pkg.go.dev](")
+	output.WriteString("Complete declaration documentation is available on [pkg.go.dev](")
 	output.WriteString(documentation)
-	output.WriteString("). Package helpers come first; `Console` methods provide the isolated equivalent, while loader and progress lifecycle methods remain on their returned values.\n")
+	output.WriteString("). The links below open source-comment examples in this README. Package declarations and global helpers come first; `Console` methods provide the isolated equivalent, while loader and progress lifecycle methods remain on their returned values.\n")
 
 	if len(ordered) == 0 {
 		output.WriteString("\nNo documented exported API is available yet.")
@@ -757,13 +1032,7 @@ func renderAPI(symbols []apiSymbol) string {
 		packageLinks := make([]string, 0, end-start)
 		methodLinks := make([]string, 0, end-start)
 		for _, symbol := range ordered[start:end] {
-			link := fmt.Sprintf(
-				`<a id="%s"></a>[%s](%s#%s)`,
-				symbol.readmeAnchor(),
-				symbol.displayName(),
-				documentation,
-				symbol.packageAnchor(),
-			)
+			link := fmt.Sprintf("[%s](#%s)", symbol.displayName(), plan.anchors[symbol.identity()])
 			if symbol.receiver == "" {
 				packageLinks = append(packageLinks, link)
 			} else {
@@ -780,6 +1049,48 @@ func renderAPI(symbols []apiSymbol) string {
 			methodAPI = "—"
 		}
 		fmt.Fprintf(&output, "| %s | %s | %s |\n", ordered[start].group, packageAPI, methodAPI)
+		start = end
+	}
+
+	return strings.TrimRight(output.String(), "\n")
+}
+
+// renderAPIExamples presents each unique source-comment target once under a collision-safe local anchor.
+func renderAPIExamples(plan apiExamplePlan) string {
+	var output strings.Builder
+	output.WriteString("## API examples\n\n")
+	output.WriteString("These examples are generated from package GoDoc comments. ")
+	output.WriteString("Package-level helpers are shown in preference to equivalent `Console` methods.\n")
+
+	if len(plan.targets) == 0 {
+		output.WriteString("\nNo documented API examples are available yet.")
+		return output.String()
+	}
+
+	for start := 0; start < len(plan.targets); {
+		end := start + 1
+		for end < len(plan.targets) && plan.targets[end].group == plan.targets[start].group {
+			end++
+		}
+
+		output.WriteString("\n### " + plan.targets[start].group + "\n\n")
+		for _, symbol := range plan.targets[start:end] {
+			fmt.Fprintf(&output, "#### <a id=\"%s\"></a>%s\n\n", symbol.readmeAnchor(), symbol.displayName())
+			if symbol.description != "" {
+				output.WriteString(symbol.description + "\n\n")
+			}
+			for _, example := range symbol.examples {
+				if strings.TrimSpace(example.code) == "" {
+					continue
+				}
+				if example.label != "" && len(symbol.examples) > 1 {
+					output.WriteString("_Example: " + example.label + "_\n\n")
+				}
+				output.WriteString("```go\n")
+				output.WriteString(strings.TrimSpace(example.code))
+				output.WriteString("\n```\n\n")
+			}
+		}
 		start = end
 	}
 

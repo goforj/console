@@ -3,6 +3,20 @@ package console
 import "strings"
 
 // TreeNode contains one label and its ordered child nodes.
+//
+// Example: construct a project hierarchy
+//
+//	tree := console.TreeNode{
+//		Label: "project",
+//		Children: []console.TreeNode{
+//			{Label: "cmd"},
+//			{Label: "README.md"},
+//		},
+//	}
+//	console.Tree(tree)
+//	// project
+//	// ├── cmd
+//	// └── README.md
 type TreeNode struct {
 	// Label is displayed on the node's first physical line.
 	Label string
@@ -11,6 +25,12 @@ type TreeNode struct {
 }
 
 // Node creates a tree node and preserves the supplied child order.
+//
+// Example: build a nested command node
+//
+//	console.Tree(console.Node("cmd", console.Node("deploy")))
+//	// cmd
+//	// └── deploy
 func Node(label string, children ...TreeNode) TreeNode {
 	return TreeNode{Label: label, Children: append([]TreeNode(nil), children...)}
 }
@@ -37,9 +57,30 @@ func (c *Console) RenderTree(nodes ...TreeNode) string {
 }
 
 // Tree prints a static tree through the default console.
+//
+// Example: print a project tree
+//
+//	console.Tree(console.Node("project",
+//		console.Node("cmd", console.Node("deploy")),
+//		console.Node("README.md"),
+//	))
+//	// project
+//	// ├── cmd
+//	// │   └── deploy
+//	// └── README.md
 func Tree(nodes ...TreeNode) { Default().Tree(nodes...) }
 
 // RenderTree renders a static tree through the default console.
+//
+// Example: compose a service tree
+//
+//	fmt.Println(console.RenderTree(console.Node("services",
+//		console.Node("api"),
+//		console.Node("worker"),
+//	)))
+//	// services
+//	// ├── api
+//	// └── worker
 func RenderTree(nodes ...TreeNode) string { return Default().RenderTree(nodes...) }
 
 // treeCharacters contains the equal-width connector units used to preserve hanging indentation.
