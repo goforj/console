@@ -575,8 +575,21 @@ func TestNewProgressSnapshotsDefault(t *testing.T) {
 	secondOut := &bytes.Buffer{}
 	colorEnabled := false
 	animationsEnabled := false
-	first := New(Config{Stdout: firstOut, Stderr: firstOut, ColorEnabled: &colorEnabled, AnimationsEnabled: &animationsEnabled})
-	second := New(Config{Stdout: secondOut, Stderr: secondOut, ColorEnabled: &colorEnabled, AnimationsEnabled: &animationsEnabled})
+	unicodeEnabled := false
+	first := New(Config{
+		Stdout:            firstOut,
+		Stderr:            firstOut,
+		ColorEnabled:      &colorEnabled,
+		UnicodeEnabled:    &unicodeEnabled,
+		AnimationsEnabled: &animationsEnabled,
+	})
+	second := New(Config{
+		Stdout:            secondOut,
+		Stderr:            secondOut,
+		ColorEnabled:      &colorEnabled,
+		UnicodeEnabled:    &unicodeEnabled,
+		AnimationsEnabled: &animationsEnabled,
+	})
 	SetDefault(first)
 	progress := NewProgress(1, "work")
 	SetDefault(second)
