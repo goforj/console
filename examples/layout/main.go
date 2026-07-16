@@ -2,6 +2,7 @@
 package main
 
 import (
+	"io"
 	"os"
 
 	"github.com/goforj/console"
@@ -9,10 +10,15 @@ import (
 
 // main renders a compact deployment summary.
 func main() {
+	run(os.Stdout)
+}
+
+// run writes the layout example to an injected stream for deterministic verification.
+func run(stdout io.Writer) {
 	color := false
 	unicode := true
 	console.SetDefault(console.New(console.Config{
-		Stdout:         os.Stdout,
+		Stdout:         stdout,
 		ColorEnabled:   &color,
 		UnicodeEnabled: &unicode,
 		Width:          48,

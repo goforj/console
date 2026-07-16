@@ -30,6 +30,10 @@ func TestStripANSIRetainsIncompleteSequences(t *testing.T) {
 		"before\x1b]8;;https://example.test",
 		"before\x1b]title\nstill\a",
 		"before\x1b]title\x1b",
+		"before\x1bPdevice data",
+		"before\x1bXprivate message",
+		"before\x1b^privacy message",
+		"before\x1b_application command",
 		"before\x1b😀",
 	}
 	for _, value := range tests {
@@ -38,6 +42,27 @@ func TestStripANSIRetainsIncompleteSequences(t *testing.T) {
 			t.Parallel()
 			if got := StripANSI(value); got != value {
 				t.Fatalf("StripANSI(%q) = %q, want the malformed input unchanged", value, got)
+			}
+		})
+	}
+}
+
+// TestStripANSIHandlesSTTerminatedControlStrings keeps nonprinting terminal protocols out of visible text.
+func TestStripANSIHandlesSTTerminatedControlStrings(t *testing.T) {
+	t.Parallel()
+
+	for name, introducer := range map[string]string{
+		"DCS": "\x1bP",
+		"SOS": "\x1bX",
+		"PM":  "\x1b^",
+		"APC": "\x1b_",
+	} {
+		name, introducer := name, introducer
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			value := "before" + introducer + "payload\a\x1b[31mstill payload\x1b\\after"
+			if got, want := StripANSI(value), "beforeafter"; got != want {
+				t.Fatalf("StripANSI() = %q, want %q", got, want)
 			}
 		})
 	}
@@ -74,6 +99,16 @@ func TestVisibleWidthCountsTerminalCells(t *testing.T) {
 		{name: "default emoji presentation", value: "✅", want: 2},
 		{name: "text variation selector", value: "✅︎", want: 1},
 		{name: "regional indicator flag", value: "🇺🇳", want: 2},
+		{name: "unmatched ZWJ", value: "A\u200dB", want: 2},
+		{name: "leading unmatched ZWJ", value: "\u200dA", want: 1},
+		{name: "ANSI within grapheme", value: "e" + ColorRed + "\u0301" + ColorReset, want: 1},
+		{name: "emoji selector on text", value: "A\ufe0f", want: 1},
+		{name: "text selector on emoji", value: "😀\ufe0e", want: 1},
+		{name: "narrow supplementary symbol", value: "🜀", want: 1},
+		{name: "decomposed Hangul", value: "각", want: 2},
+		{name: "standalone emoji modifier", value: "🏻", want: 2},
+		{name: "modifier after non-base", value: "A🏻", want: 3},
+		{name: "text-default modifier base", value: "☝🏻", want: 2},
 		{name: "tab stop", value: "a\tb", want: 9},
 		{name: "control characters", value: "a\rb", want: 2},
 	}
@@ -85,6 +120,16 @@ func TestVisibleWidthCountsTerminalCells(t *testing.T) {
 				t.Fatalf("VisibleWidth(%q) = %d, want %d", test.value, got, test.want)
 			}
 		})
+	}
+}
+
+// TestDisplayTokensPreserveSourceBytes verifies ANSI inside a cluster cannot alter reconstruction.
+func TestDisplayTokensPreserveSourceBytes(t *testing.T) {
+	t.Parallel()
+
+	value := "e" + ColorRed + "\u0301" + ColorReset + "ᄀ" + StyleBold + "ᅡᆨ"
+	if got := joinDisplayTokens(displayTokens(value)); got != value {
+		t.Fatalf("joinDisplayTokens(displayTokens()) = %q, want %q", got, value)
 	}
 }
 
@@ -115,6 +160,8 @@ func TestTruncateUsesVisibleCells(t *testing.T) {
 		{name: "CJK", value: "界界界", width: 5, want: "界界…"},
 		{name: "combining", value: "e\u0301clair", width: 4, want: "e\u0301cl…"},
 		{name: "emoji", value: "👩🏽‍💻 developer", width: 5, want: "👩🏽‍💻 d…"},
+		{name: "decomposed Hangul cluster", value: "각x", width: 2, want: "…"},
+		{name: "Indic cluster", value: "काx", width: 2, want: "…"},
 		{name: "each line", value: "abcdef\n界界界", width: 4, want: "abc…\n界…"},
 		{name: "CRLF normalization", value: "abcdef\r\nxy", width: 4, want: "abc…\nxy"},
 	}
@@ -239,6 +286,10 @@ func TestWrapUsesVisibleCells(t *testing.T) {
 		{name: "combining", value: "e\u0301e\u0301e\u0301", width: 2, want: "e\u0301e\u0301\ne\u0301"},
 		{name: "emoji ZWJ", value: "👩🏽‍💻👩🏽‍💻", width: 2, want: "👩🏽‍💻\n👩🏽‍💻"},
 		{name: "overwide emoji ZWJ", value: "👩🏽‍💻👩🏽‍💻", width: 1, want: "👩🏽‍💻\n👩🏽‍💻"},
+		{name: "unmatched ZWJ", value: "A\u200dB", width: 1, want: "A\u200d\nB"},
+		{name: "decomposed Hangul", value: "각나", width: 2, want: "각\n나"},
+		{name: "Indic spacing marks", value: "काकी", width: 1, want: "का\nकी"},
+		{name: "ANSI within grapheme", value: "e" + ColorRed + "\u0301" + ColorReset + "x", width: 1, want: "e" + ColorRed + "\u0301" + ColorReset + "\nx"},
 		{name: "leading and trailing spaces", value: "  alpha  ", width: 10, want: "alpha"},
 		{name: "non-breaking space is retained", value: " alpha\u00a0 ", width: 10, want: "alpha\u00a0"},
 		{name: "nonpositive width", value: "alpha beta", width: 0, want: "alpha beta"},
@@ -440,6 +491,45 @@ func TestSanitizeLayoutTextRetainsOnlyGeometrySafeTerminalSequences(t *testing.T
 	}
 	if got, want := sanitizeLayoutText("a\r\nb\rc\n", false), "a b c "; got != want {
 		t.Fatalf("sanitizeLayoutText(single line) = %q, want %q", got, want)
+	}
+}
+
+// TestSanitizeLayoutTextRejectsUnsafeTerminalMetadata prevents OSC payloads from smuggling controls.
+func TestSanitizeLayoutTextRejectsUnsafeTerminalMetadata(t *testing.T) {
+	t.Parallel()
+
+	valid := "\x1b]8;;https://例.example/文書\x1b\\docs\x1b]8;;\x1b\\"
+	if got := sanitizeLayoutText(valid, true); got != valid {
+		t.Fatalf("sanitizeLayoutText(valid OSC 8) = %q, want %q", got, valid)
+	}
+
+	unsafe := []string{
+		"\x1b]8;;https://example.test/\x00hidden\x1b\\",
+		"\x1b]8;;https://example.test/\x1b[31mhidden\x1b\\",
+		"\x1b]8;;https://example.test/\xc2\x80hidden\x1b\\",
+		string([]byte{'\x1b', ']', '8', ';', ';', 'x', 0xff, '\x1b', '\\'}),
+	}
+	for _, value := range unsafe {
+		if got := sanitizeLayoutText(value, true); got != "" {
+			t.Fatalf("sanitizeLayoutText(%q) = %q, want unsafe OSC removed", value, got)
+		}
+	}
+
+	for _, value := range []string{
+		"\x1bPdevice control\x1b\\",
+		"\x1bXstart of string\x1b\\",
+		"\x1b^privacy message\x1b\\",
+		"\x1b_application command\x1b\\",
+	} {
+		if got := sanitizeLayoutText(value, true); got != "" {
+			t.Fatalf("sanitizeLayoutText(%q) = %q, want control string removed", value, got)
+		}
+	}
+
+	invalid := string([]byte{'a', 0x90, 0xff, 'b'})
+	want := string([]byte{'a', 0xff, 'b'})
+	if got := sanitizeLayoutText(invalid, true); got != want {
+		t.Fatalf("sanitizeLayoutText(invalid bytes) = %q, want %q", got, want)
 	}
 }
 

@@ -295,6 +295,43 @@ func ExampleTable_options() {
 	// test            3
 }
 
+// ExampleTable_ascii demonstrates the ASCII fallback and centered columns for constrained terminals.
+//
+// @readme table-ascii
+func ExampleTable_ascii() {
+	// @readme:setup:start
+	color := false
+	unicode := false
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})()
+	// @readme:setup:end
+
+	console.Table(
+		[]string{"Status", "Count"},
+		[][]string{{"ready", "2"}, {"waiting", "12"}},
+		console.TableWidths(8, 5),
+		console.TableCenterAlign(0),
+		console.TableRightAlign(1),
+	)
+	// +----------+-------+
+	// |  Status  | Count |
+	// +----------+-------+
+	// |  ready   |     2 |
+	// | waiting  |    12 |
+	// +----------+-------+
+
+	// Output:
+	// +----------+-------+
+	// |  Status  | Count |
+	// +----------+-------+
+	// |  ready   |     2 |
+	// | waiting  |    12 |
+	// +----------+-------+
+}
+
 // ExampleNewLoader demonstrates stable loader outcomes when output is redirected.
 //
 // @readme loader
@@ -313,14 +350,22 @@ func ExampleNewLoader() {
 	// @readme:setup:end
 
 	download := console.NewLoader("Downloading modules")
-	_ = download.Start()
+	if err := download.Start(); err != nil {
+		console.Error(err.Error())
+		return
+	}
 	// · Downloading modules
+	defer download.Stop()
 	download.Success("Modules ready")
 	// ✔ Modules ready
 
 	publish := console.NewLoader("Publishing release")
-	_ = publish.Start()
+	if err := publish.Start(); err != nil {
+		console.Error(err.Error())
+		return
+	}
 	// · Publishing release
+	defer publish.Stop()
 	publish.Fail("Registry refused upload")
 	// ✖ Registry refused upload
 
@@ -348,9 +393,13 @@ func ExampleNewProgress() {
 	// @readme:setup:end
 
 	progress := console.NewProgress(100, "Packaging release")
-	_ = progress.Start()
+	if err := progress.Start(); err != nil {
+		console.Error(err.Error())
+		return
+	}
 	// · Packaging release
-	progress.Set(40)
+	defer progress.Stop()
+	progress.Step(40, "Uploading release")
 	progress.Add(60)
 	progress.Complete("Release ready")
 	// ✔ Release ready
@@ -458,6 +507,146 @@ func ExampleStripANSI() {
 	// deploying
 	// worker
 	// service
+}
+
+// Example_deploymentRecipe demonstrates a complete deployment lifecycle with concise package helpers.
+//
+// @readme deployment-recipe
+func Example_deploymentRecipe() {
+	// @readme:setup:start
+	color := false
+	animations := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		Stdout:            os.Stdout,
+		Stderr:            os.Stdout,
+		ColorEnabled:      &color,
+		UnicodeEnabled:    &unicode,
+		AnimationsEnabled: &animations,
+	})()
+	// @readme:setup:end
+
+	console.Section("Deploy production")
+	// ◇ Deploy production
+	console.KeyValues(
+		console.KV("Environment", "production"),
+		console.KV("Region", "eu-west-1"),
+	)
+	// Environment  production
+	// Region       eu-west-1
+
+	progress := console.NewProgress(2, "Deploying services")
+	if err := progress.Start(); err != nil {
+		console.Error(err.Error())
+		return
+	}
+	// · Deploying services
+	defer progress.Stop()
+	progress.Step(1, "Deploying worker")
+	progress.Complete("Services deployed")
+	// ✔ Services deployed
+
+	console.Table(
+		[]string{"Service", "State"},
+		[][]string{{"api", "ready"}, {"worker", "ready"}},
+	)
+	// ┌─────────┬───────┐
+	// │ Service │ State │
+	// ├─────────┼───────┤
+	// │ api     │ ready │
+	// │ worker  │ ready │
+	// └─────────┴───────┘
+	console.Success("Deployment complete")
+	// ✔ Deployment complete
+
+	// Output:
+	// ◇ Deploy production
+	// Environment  production
+	// Region       eu-west-1
+	// · Deploying services
+	// ✔ Services deployed
+	// ┌─────────┬───────┐
+	// │ Service │ State │
+	// ├─────────┼───────┤
+	// │ api     │ ready │
+	// │ worker  │ ready │
+	// └─────────┴───────┘
+	// ✔ Deployment complete
+}
+
+// Example_validationRecipe demonstrates a compact report that tells users what to fix next.
+//
+// @readme validation-recipe
+func Example_validationRecipe() {
+	// @readme:setup:start
+	color := false
+	unicode := true
+	defer useExampleDefault(console.Config{
+		Stdout:         os.Stdout,
+		Stderr:         os.Stdout,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	})()
+	// @readme:setup:end
+
+	console.Section("Configuration check")
+	// ◇ Configuration check
+	console.KeyValues(
+		console.KV("Checks", 8),
+		console.KV("Passed", 6),
+		console.KV("Failed", 2),
+	)
+	// Checks  8
+	// Passed  6
+	// Failed  2
+	console.Warn("2 issues need attention")
+	// ! 2 issues need attention
+	console.List("DATABASE_URL is missing", "PORT must be between 1 and 65535")
+	// • DATABASE_URL is missing
+	// • PORT must be between 1 and 65535
+	console.Error("Validation failed")
+	// ✖ Validation failed
+
+	// Output:
+	// ◇ Configuration check
+	// Checks  8
+	// Passed  6
+	// Failed  2
+	// ! 2 issues need attention
+	// • DATABASE_URL is missing
+	// • PORT must be between 1 and 65535
+	// ✖ Validation failed
+}
+
+// Example_ciRecipe demonstrates keeping machine output separate from human-facing CI status.
+//
+// @readme ci-recipe
+func Example_ciRecipe() {
+	var machineOutput bytes.Buffer
+	var statusOutput bytes.Buffer
+	color := false
+	unicode := false
+	// @readme:setup:start
+	previous := console.Default()
+	defer console.SetDefault(previous)
+	// @readme:setup:end
+	console.SetDefault(console.New(console.Config{
+		Stdout:         &machineOutput,
+		Stderr:         &statusOutput,
+		ColorEnabled:   &color,
+		UnicodeEnabled: &unicode,
+	}))
+
+	fmt.Fprintln(console.StdoutWriter(), `{"artifact":"app.tar.gz","status":"ready"}`)
+	fmt.Fprintln(console.StderrWriter(), "status: uploading app.tar.gz")
+	fmt.Printf("stdout: %q\n", machineOutput.String())
+	// stdout: "{\"artifact\":\"app.tar.gz\",\"status\":\"ready\"}\n"
+	fmt.Printf("stderr: %q\n", statusOutput.String())
+	// stderr: "status: uploading app.tar.gz\n"
+
+	// Output:
+	// stdout: "{\"artifact\":\"app.tar.gz\",\"status\":\"ready\"}\n"
+	// stderr: "status: uploading app.tar.gz\n"
 }
 
 // ExampleNew demonstrates an isolated console for libraries and independently configured commands.

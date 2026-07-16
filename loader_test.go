@@ -734,6 +734,31 @@ func TestLoaderRedirectedOutputUsesStableSemanticLines(t *testing.T) {
 	}
 }
 
+// TestLoaderRenderingStaysWithinConfiguredWidth verifies frames and labels share one strict terminal-cell budget.
+func TestLoaderRenderingStaysWithinConfiguredWidth(t *testing.T) {
+	t.Parallel()
+
+	for _, unicodeEnabled := range []bool{false, true} {
+		for width := 1; width <= 96; width++ {
+			console, _, _, _ := newLoaderTestConsole(true)
+			console.unicodeEnabled = unicodeEnabled
+			console.width = width
+			console.marks.SpinnerFrames = []string{"界界"}
+			loader := console.Loader("download long-lived artifacts")
+			loader.state = loaderRunning
+			loader.dynamic = true
+
+			rendered := strings.TrimPrefix(loader.renderTransient(), clearTransientLine)
+			if got := VisibleWidth(rendered); got > width {
+				t.Fatalf("Unicode=%t width=%d rendered width = %d: %q", unicodeEnabled, width, got, rendered)
+			}
+			if strings.ContainsAny(rendered, "\r\n") {
+				t.Fatalf("Unicode=%t width=%d rendered multiple lines: %q", unicodeEnabled, width, rendered)
+			}
+		}
+	}
+}
+
 // TestNewLoaderSnapshotsDefaultConsole verifies later default changes cannot redirect an existing loader.
 func TestNewLoaderSnapshotsDefaultConsole(t *testing.T) {
 	previous := Default()

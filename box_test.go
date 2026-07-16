@@ -2,6 +2,7 @@ package console
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 )
@@ -153,6 +154,19 @@ func TestRenderBoxBoundsAutomaticWidth(t *testing.T) {
 		t.Fatalf("RenderBox() =\n%s\nwant:\n%s", got, want)
 	}
 	assertBoxVisibleGeometry(t, got, 10)
+}
+
+// TestRenderBoxBoundsExtremeOptions verifies programmatic dimensions cannot force unsafe allocations.
+func TestRenderBoxBoundsExtremeOptions(t *testing.T) {
+	t.Parallel()
+
+	console, _ := newBoxTestConsole(20, true, false)
+	got := console.RenderBox("safe", BoxWidth(math.MaxInt), BoxPadding(math.MaxInt), BoxColor(""))
+	for index, line := range strings.Split(got, "\n") {
+		if width := VisibleWidth(line); width != 20 {
+			t.Fatalf("line %d width = %d, want 20: %q", index, width, line)
+		}
+	}
 }
 
 // TestRenderBoxMaintainsNarrowFixedWidth verifies double-width content cannot widen an explicitly sized box.

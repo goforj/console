@@ -56,6 +56,24 @@ func TestSectionAppliesConfiguredStyles(t *testing.T) {
 	}
 }
 
+// TestSectionHonorsConfiguredWidth verifies headings do not rely on physical-terminal wrapping.
+func TestSectionHonorsConfiguredWidth(t *testing.T) {
+	t.Parallel()
+
+	for _, unicodeEnabled := range []bool{false, true} {
+		for width := 1; width <= 12; width++ {
+			console, _ := newLayoutTestConsole(width, unicodeEnabled, false)
+			rendered := console.RenderSection("A very long deployment heading")
+			if got := VisibleWidth(rendered); got > width {
+				t.Fatalf("Unicode=%t width=%d rendered width = %d: %q", unicodeEnabled, width, got, rendered)
+			}
+			if strings.ContainsAny(rendered, "\r\n") {
+				t.Fatalf("Unicode=%t width=%d rendered multiple lines: %q", unicodeEnabled, width, rendered)
+			}
+		}
+	}
+}
+
 // TestRuleHonorsWidthAndTitle verifies titled, untitled, truncated, ASCII, and narrow rules.
 func TestRuleHonorsWidthAndTitle(t *testing.T) {
 	t.Parallel()

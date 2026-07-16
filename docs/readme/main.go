@@ -26,9 +26,63 @@ const (
 )
 
 var (
-	groupHeader         = regexp.MustCompile(`(?im)^\s*@group\s+(.+?)\s*$`)
 	readmeExampleHeader = regexp.MustCompile(`(?im)^\s*@readme\s+([a-z][a-z0-9-]*)\s*$`)
 )
+
+// apiGroupDefinition keeps README navigation policy out of public GoDoc.
+type apiGroupDefinition struct {
+	name    string
+	symbols []string
+}
+
+// apiGroupManifest assigns every exported package declaration to one reader-facing group.
+// Console methods inherit the group of their same-named package declaration, while methods
+// on lifecycle types inherit the group of their receiver.
+var apiGroupManifest = []apiGroupDefinition{
+	{name: "Boxes", symbols: []string{
+		"Box", "BoxColor", "BoxOption", "BoxPadding", "BoxTitle", "BoxWidth", "RenderBox",
+	}},
+	{name: "Layout", symbols: []string{
+		"KV", "KeyValue", "KeyValueMap", "KeyValues", "List", "NumberedList",
+		"RenderKeyValueMap", "RenderKeyValues", "RenderList", "RenderNumberedList",
+		"RenderRule", "RenderSection", "Rule", "Section",
+	}},
+	{name: "Loaders", symbols: []string{"Loader", "NewLoader"}},
+	{name: "Marks", symbols: []string{
+		"ActionMark", "DebugMark", "ErrorMark", "InfoMark", "SuccessMark", "WarnMark",
+	}},
+	{name: "Messages", symbols: []string{
+		"Action", "Actionf", "Debug", "Debugf", "Error", "Errorf", "Fatal", "Fatalf",
+		"Info", "Infof", "Success", "Successf", "Warn", "Warnf",
+	}},
+	{name: "Output", symbols: []string{
+		"NewLine", "Print", "Printf", "Println", "StderrWriter", "StdoutWriter",
+	}},
+	{name: "Progress", symbols: []string{"NewProgress", "Progress"}},
+	{name: "Prompts", symbols: []string{
+		"Ask", "AskDefault", "AskSecret", "Choose", "ChooseIndex", "Confirm", "ErrNonInteractive",
+	}},
+	{name: "Runtime", symbols: []string{
+		"ASCIIMarks", "Config", "Console", "Default", "DefaultMarks", "Marks", "New", "SetDefault",
+	}},
+	{name: "Styling", symbols: []string{
+		"ColorBlack", "ColorBlue", "ColorBoldGreen", "ColorBoldWhite", "ColorCyan", "ColorGray",
+		"ColorGreen", "ColorMagenta", "ColorRed", "ColorReset", "ColorWhite", "ColorYellow",
+		"Colorize", "Style", "StyleBold", "StyleDim", "StyleUnderline",
+	}},
+	{name: "Tables", symbols: []string{
+		"RenderTable", "Table", "TableCenterAlign", "TableCompact", "TableOption",
+		"TableRightAlign", "TableWidths",
+	}},
+	{name: "Terminal", symbols: []string{
+		"ErrTransientActive", "IsInteractive", "SupportsColor", "SupportsUnicode", "Width",
+	}},
+	{name: "Text", symbols: []string{
+		"ExpandTabs", "Indent", "PadCenter", "PadLeft", "PadRight", "StripANSI", "Truncate",
+		"TruncateMiddle", "VisibleWidth", "Wrap",
+	}},
+	{name: "Trees", symbols: []string{"Node", "RenderTree", "Tree", "TreeNode"}},
+}
 
 // readmeExampleSections defines the deliberately focused set of workflows represented in the README.
 var readmeExampleSections = []struct {
@@ -44,11 +98,15 @@ var readmeExampleSections = []struct {
 	{id: "boxes", title: "Boxes"},
 	{id: "tables", title: "Tables"},
 	{id: "table-options", title: "Compact, fixed, and aligned tables"},
+	{id: "table-ascii", title: "ASCII borders and centered columns"},
 	{id: "loader", title: "Redirect-safe loader outcomes"},
 	{id: "progress", title: "Determinate progress"},
 	{id: "prompts", title: "Questions, defaults, and confirmation"},
 	{id: "selection", title: "Choices and secret input"},
 	{id: "text", title: "ANSI-aware text utilities"},
+	{id: "deployment-recipe", title: "Recipe: a deployment lifecycle"},
+	{id: "validation-recipe", title: "Recipe: an actionable validation report"},
+	{id: "ci-recipe", title: "Recipe: machine stdout and status stderr"},
 	{id: "instance", title: "Isolated console instances"},
 }
 
@@ -176,7 +234,7 @@ func extractREADMEExamples(fileSet *token.FileSet, file *ast.File) ([]readmeExam
 		if err != nil {
 			return nil, fmt.Errorf("format %s: %w", name, err)
 		}
-		inlineOutput, err := extractInlineOutput(example.Play)
+		inlineOutput, err := extractInlineOutput(fileSet, example.Play)
 		if err != nil {
 			return nil, fmt.Errorf("parse %s inline output: %w", name, err)
 		}
@@ -274,8 +332,8 @@ func formatREADMEExample(fileSet *token.FileSet, file *ast.File) (string, error)
 	return strings.TrimSpace(strings.Join(visible, "\n")), nil
 }
 
-// extractInlineOutput collects comments inside main so README output stays next to the call that produced it.
-func extractInlineOutput(file *ast.File) (string, error) {
+// extractInlineOutput collects adjacent comments inside main so output stays beside its producing statement.
+func extractInlineOutput(fileSet *token.FileSet, file *ast.File) (string, error) {
 	var body *ast.BlockStmt
 	for _, declaration := range file.Decls {
 		function, ok := declaration.(*ast.FuncDecl)
@@ -293,12 +351,15 @@ func extractInlineOutput(file *ast.File) (string, error) {
 		if group.Pos() < body.Pos() || group.End() > body.End() {
 			continue
 		}
+		if len(group.List) == 1 && (group.List[0].Text == setupStart || group.List[0].Text == setupEnd) {
+			continue
+		}
+		if err := requireAdjacentOutputComment(fileSet, body, group); err != nil {
+			return "", err
+		}
 		for _, comment := range group.List {
 			if !strings.HasPrefix(comment.Text, "//") {
 				return "", errors.New("inline output must use line comments")
-			}
-			if comment.Text == setupStart || comment.Text == setupEnd {
-				continue
 			}
 			line := strings.TrimPrefix(comment.Text, "//")
 			line = strings.TrimPrefix(line, " ")
@@ -309,6 +370,31 @@ func extractInlineOutput(file *ast.File) (string, error) {
 		return "", errors.New("standalone example has no inline output comments")
 	}
 	return strings.Join(lines, "\n") + "\n", nil
+}
+
+// requireAdjacentOutputComment rejects comments detached from the statement whose output they document.
+func requireAdjacentOutputComment(fileSet *token.FileSet, body *ast.BlockStmt, group *ast.CommentGroup) error {
+	var previous ast.Stmt
+	for _, statement := range body.List {
+		if statement.End() >= group.Pos() {
+			break
+		}
+		previous = statement
+	}
+	if previous == nil {
+		return errors.New("inline output comment has no preceding statement")
+	}
+
+	statementLine := fileSet.Position(previous.End()).Line
+	commentLine := fileSet.Position(group.Pos()).Line
+	if commentLine != statementLine+1 {
+		return fmt.Errorf(
+			"inline output comment on line %d must immediately follow its statement ending on line %d",
+			commentLine,
+			statementLine,
+		)
+	}
+	return nil
 }
 
 // orderREADMEExamples rejects missing, duplicate, and unknown selections before assigning reader-facing titles.
@@ -372,8 +458,13 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// parseAPISymbols collects documented exported types, functions, and methods from the library package.
+// parseAPISymbols collects and groups documented exported declarations from the library package.
 func parseAPISymbols(root string) ([]apiSymbol, error) {
+	return parseAPISymbolsWithManifest(root, apiGroupManifest)
+}
+
+// parseAPISymbolsWithManifest applies explicit documentation navigation policy to one package.
+func parseAPISymbolsWithManifest(root string, manifest []apiGroupDefinition) ([]apiSymbol, error) {
 	fileSet := token.NewFileSet()
 	packages, err := parser.ParseDir(
 		fileSet,
@@ -397,7 +488,6 @@ func parseAPISymbols(root string) ([]apiSymbol, error) {
 		return nil, fmt.Errorf("selected package %q is missing", packageName)
 	}
 
-	typeGroups := collectTypeGroups(pkg)
 	var symbols []apiSymbol
 	for _, file := range pkg.Files {
 		for _, declaration := range file.Decls {
@@ -406,7 +496,7 @@ func parseAPISymbols(root string) ([]apiSymbol, error) {
 				symbols = append(symbols, documentedTypes(declaration)...)
 				symbols = append(symbols, documentedValues(declaration)...)
 			case *ast.FuncDecl:
-				symbol, include, err := documentedFunction(declaration, typeGroups)
+				symbol, include, err := documentedFunction(declaration)
 				if err != nil {
 					return nil, err
 				}
@@ -416,18 +506,20 @@ func parseAPISymbols(root string) ([]apiSymbol, error) {
 			}
 		}
 	}
+	if err := assignAPIGroups(symbols, manifest); err != nil {
+		return nil, err
+	}
 
 	sortSymbols(symbols)
 	return symbols, nil
 }
 
-// documentedValues returns public constants and variables while inheriting declaration-level grouping metadata.
+// documentedValues returns public constants and variables that have GoDoc.
 func documentedValues(declaration *ast.GenDecl) []apiSymbol {
 	if declaration.Tok != token.CONST && declaration.Tok != token.VAR {
 		return nil
 	}
 
-	declarationGroup, hasDeclarationGroup := explicitGroup(declaration.Doc)
 	var symbols []apiSymbol
 	for _, specification := range declaration.Specs {
 		valueSpecification, ok := specification.(*ast.ValueSpec)
@@ -442,16 +534,9 @@ func documentedValues(declaration *ast.GenDecl) []apiSymbol {
 			continue
 		}
 
-		group, hasExplicitGroup := explicitGroup(documentationGroup)
-		if !hasExplicitGroup && hasDeclarationGroup {
-			group = declarationGroup
-		}
-		if group == "" {
-			group = "Other"
-		}
 		for _, name := range valueSpecification.Names {
 			if ast.IsExported(name.Name) {
-				symbols = append(symbols, apiSymbol{name: name.Name, group: group})
+				symbols = append(symbols, apiSymbol{name: name.Name})
 			}
 		}
 	}
@@ -490,38 +575,6 @@ func selectPackage(packages map[string]*ast.Package) (string, error) {
 	return candidates[0].name, nil
 }
 
-// collectTypeGroups lets methods inherit their receiver's category without repeating metadata on every method.
-func collectTypeGroups(pkg *ast.Package) map[string]string {
-	groups := make(map[string]string)
-	for _, file := range pkg.Files {
-		for _, declaration := range file.Decls {
-			general, ok := declaration.(*ast.GenDecl)
-			if !ok || general.Tok != token.TYPE {
-				continue
-			}
-
-			for _, specification := range general.Specs {
-				typeSpecification, ok := specification.(*ast.TypeSpec)
-				if !ok || !ast.IsExported(typeSpecification.Name.Name) {
-					continue
-				}
-
-				documentationGroup := typeSpecification.Doc
-				if documentationGroup == nil {
-					documentationGroup = general.Doc
-				}
-				if documentationGroup == nil {
-					continue
-				}
-
-				groups[typeSpecification.Name.Name] = extractGroup(documentationGroup)
-			}
-		}
-	}
-
-	return groups
-}
-
 // documentedTypes returns only public types with GoDoc so the index never advertises undocumented internals.
 func documentedTypes(declaration *ast.GenDecl) []apiSymbol {
 	if declaration.Tok != token.TYPE {
@@ -543,17 +596,14 @@ func documentedTypes(declaration *ast.GenDecl) []apiSymbol {
 			continue
 		}
 
-		symbols = append(symbols, apiSymbol{
-			name:  typeSpecification.Name.Name,
-			group: extractGroup(documentationGroup),
-		})
+		symbols = append(symbols, apiSymbol{name: typeSpecification.Name.Name})
 	}
 
 	return symbols
 }
 
-// documentedFunction resolves method inheritance while keeping an explicit method group authoritative.
-func documentedFunction(function *ast.FuncDecl, typeGroups map[string]string) (apiSymbol, bool, error) {
+// documentedFunction returns a public function or method with GoDoc.
+func documentedFunction(function *ast.FuncDecl) (apiSymbol, bool, error) {
 	if function.Doc == nil || !ast.IsExported(function.Name.Name) {
 		return apiSymbol{}, false, nil
 	}
@@ -566,38 +616,49 @@ func documentedFunction(function *ast.FuncDecl, typeGroups map[string]string) (a
 		return apiSymbol{}, false, nil
 	}
 
-	group, hasExplicitGroup := explicitGroup(function.Doc)
-	if !hasExplicitGroup && receiver != "" {
-		group = typeGroups[receiver]
-	}
-	if group == "" {
-		group = "Other"
-	}
-
-	return apiSymbol{name: function.Name.Name, receiver: receiver, group: group}, true, nil
+	return apiSymbol{name: function.Name.Name, receiver: receiver}, true, nil
 }
 
-// explicitGroup distinguishes absent metadata from an intentional group so receiver inheritance remains possible.
-func explicitGroup(documentationGroup *ast.CommentGroup) (string, bool) {
-	if documentationGroup == nil {
-		return "", false
-	}
-	match := groupHeader.FindStringSubmatch(documentationGroup.Text())
-	if match == nil {
-		return "", false
+// assignAPIGroups validates the manifest and applies its categories to every documented symbol.
+func assignAPIGroups(symbols []apiSymbol, manifest []apiGroupDefinition) error {
+	groups := make(map[string]string)
+	for _, definition := range manifest {
+		if strings.TrimSpace(definition.name) == "" {
+			return errors.New("API group manifest contains an empty group name")
+		}
+		for _, name := range definition.symbols {
+			if existing, ok := groups[name]; ok {
+				return fmt.Errorf("API group manifest assigns %s to both %s and %s", name, existing, definition.name)
+			}
+			groups[name] = definition.name
+		}
 	}
 
-	group := strings.TrimSpace(match[1])
-	return group, group != ""
-}
-
-// extractGroup keeps unclassified declarations visible instead of silently dropping new API.
-func extractGroup(documentationGroup *ast.CommentGroup) string {
-	group, ok := explicitGroup(documentationGroup)
-	if !ok {
-		return "Other"
+	packageSymbols := make(map[string]struct{})
+	for _, symbol := range symbols {
+		if symbol.receiver == "" {
+			packageSymbols[symbol.name] = struct{}{}
+		}
 	}
-	return group
+	for name := range groups {
+		if _, ok := packageSymbols[name]; !ok {
+			return fmt.Errorf("API group manifest contains stale package symbol %s", name)
+		}
+	}
+
+	for index := range symbols {
+		groupKey := symbols[index].name
+		if symbols[index].receiver != "" && symbols[index].receiver != "Console" {
+			groupKey = symbols[index].receiver
+		}
+		group, ok := groups[groupKey]
+		if !ok {
+			return fmt.Errorf("documented API symbol %s is missing from the API group manifest", symbols[index].displayName())
+		}
+		symbols[index].group = group
+	}
+
+	return nil
 }
 
 // receiverName returns the declared receiver type because both README and pkg.go.dev anchors use it.
@@ -669,7 +730,7 @@ func renderDocumentation(symbols []apiSymbol, examples []readmeExample) string {
 	return renderAPI(symbols) + "\n\n" + renderExamples(examples)
 }
 
-// renderAPI groups a compact index while leaving detailed examples and contracts on pkg.go.dev.
+// renderAPI places package helpers before methods so the concise default path is easiest to scan.
 func renderAPI(symbols []apiSymbol) string {
 	ordered := append([]apiSymbol(nil), symbols...)
 	sortSymbols(ordered)
@@ -678,33 +739,47 @@ func renderAPI(symbols []apiSymbol) string {
 	output.WriteString("## API index\n\n")
 	output.WriteString("The complete API documentation is available on [pkg.go.dev](")
 	output.WriteString(documentation)
-	output.WriteString(").\n")
+	output.WriteString("). Package helpers come first; `Console` methods provide the isolated equivalent, while loader and progress lifecycle methods remain on their returned values.\n")
 
 	if len(ordered) == 0 {
 		output.WriteString("\nNo documented exported API is available yet.")
 		return output.String()
 	}
 
-	output.WriteString("\n| Group | API |\n")
-	output.WriteString("| --- | --- |\n")
+	output.WriteString("\n| Group | Package API | Instance and lifecycle API |\n")
+	output.WriteString("| --- | --- | --- |\n")
 	for start := 0; start < len(ordered); {
 		end := start + 1
 		for end < len(ordered) && ordered[end].group == ordered[start].group {
 			end++
 		}
 
-		links := make([]string, 0, end-start)
+		packageLinks := make([]string, 0, end-start)
+		methodLinks := make([]string, 0, end-start)
 		for _, symbol := range ordered[start:end] {
-			links = append(links, fmt.Sprintf(
+			link := fmt.Sprintf(
 				`<a id="%s"></a>[%s](%s#%s)`,
 				symbol.readmeAnchor(),
 				symbol.displayName(),
 				documentation,
 				symbol.packageAnchor(),
-			))
+			)
+			if symbol.receiver == "" {
+				packageLinks = append(packageLinks, link)
+			} else {
+				methodLinks = append(methodLinks, link)
+			}
 		}
 
-		fmt.Fprintf(&output, "| %s | %s |\n", ordered[start].group, strings.Join(links, " · "))
+		packageAPI := strings.Join(packageLinks, " · ")
+		if packageAPI == "" {
+			packageAPI = "—"
+		}
+		methodAPI := strings.Join(methodLinks, " · ")
+		if methodAPI == "" {
+			methodAPI = "—"
+		}
+		fmt.Fprintf(&output, "| %s | %s | %s |\n", ordered[start].group, packageAPI, methodAPI)
 		start = end
 	}
 

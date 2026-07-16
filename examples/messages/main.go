@@ -2,6 +2,7 @@
 package main
 
 import (
+	"io"
 	"os"
 
 	"github.com/goforj/console"
@@ -9,11 +10,16 @@ import (
 
 // main prints the same semantic messages used by a typical command lifecycle.
 func main() {
+	run(os.Stdout, os.Stderr)
+}
+
+// run writes the example to injected streams so its documented output stays testable.
+func run(stdout, stderr io.Writer) {
 	color := false
 	unicode := true
 	console.SetDefault(console.New(console.Config{
-		Stdout:         os.Stdout,
-		Stderr:         os.Stderr,
+		Stdout:         stdout,
+		Stderr:         stderr,
 		ColorEnabled:   &color,
 		UnicodeEnabled: &unicode,
 	}))

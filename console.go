@@ -2,6 +2,7 @@ package console
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"os"
 	"reflect"
@@ -15,6 +16,7 @@ import (
 
 const (
 	defaultTerminalWidth  = 80
+	maximumTerminalWidth  = 32768
 	defaultLoaderInterval = 80 * time.Millisecond
 )
 
@@ -22,7 +24,6 @@ const (
 //
 // Every field is optional. Nil functions and writers use their operating-system
 // defaults, while nil boolean pointers select automatic behavior.
-// @group Runtime
 type Config struct {
 	// Stdin supplies answers to prompts.
 	Stdin io.Reader
@@ -43,6 +44,7 @@ type Config struct {
 	AnimationsEnabled *bool
 
 	// Width fixes the available output width. Values less than one use terminal detection and then an 80-column fallback.
+	// Configured, detected, and environment widths are capped at 32,768 columns to keep layout allocations practical.
 	Width int
 	// LoaderInterval controls animated loader frame timing. Values less than or equal to zero use 80 milliseconds.
 	LoaderInterval time.Duration
@@ -63,7 +65,6 @@ type Config struct {
 }
 
 // Marks contains the symbols used for messages, lists, selections, and loaders.
-// @group Runtime
 type Marks struct {
 	// Action identifies work that is starting or underway.
 	Action string
@@ -86,7 +87,6 @@ type Marks struct {
 }
 
 // DefaultMarks returns the Unicode symbols used by a default console.
-// @group Runtime
 func DefaultMarks() Marks {
 	return Marks{
 		Action:        "·",
@@ -102,7 +102,6 @@ func DefaultMarks() Marks {
 }
 
 // ASCIIMarks returns symbols suitable for constrained terminals and plain logs.
-// @group Runtime
 func ASCIIMarks() Marks {
 	return Marks{
 		Action:        "-",
@@ -119,7 +118,6 @@ func ASCIIMarks() Marks {
 
 // Console coordinates output policy, terminal capabilities, prompts, and transient displays.
 // A Console is safe for concurrent message writes and must be constructed with New.
-// @group Runtime
 type Console struct {
 	stdin              *bufio.Reader
 	stdinSource        io.Reader
@@ -137,12 +135,13 @@ type Console struct {
 	loaderInterval time.Duration
 	marks          Marks
 
-	getenv     func(string) string
-	isTerminal func(int) bool
-	getSize    func(int) (width, height int, err error)
-	exit       func(int)
-	readSecret func() (string, error)
-	newTicker  func(time.Duration) loaderTicker
+	getenv       func(string) string
+	isTerminal   func(int) bool
+	supportsANSI func(int) bool
+	getSize      func(int) (width, height int, err error)
+	exit         func(int)
+	readSecret   func() (string, error)
+	newTicker    func(time.Duration) loaderTicker
 
 	inputMu      sync.Mutex
 	sessionMu    sync.RWMutex
@@ -159,7 +158,6 @@ var defaultState = struct {
 }{console: New(Config{})}
 
 // New creates an isolated console with optional runtime overrides.
-// @group Runtime
 func New(config Config) *Console {
 	stdin := config.Stdin
 	if stdin == nil {
@@ -178,8 +176,13 @@ func New(config Config) *Console {
 		getenv = os.Getenv
 	}
 	isTerminal := config.IsTerminal
+	supportsANSI := terminalSupportsANSI
 	if isTerminal == nil {
 		isTerminal = term.IsTerminal
+	} else {
+		// A caller-provided terminal detector owns the descriptor contract, which may
+		// represent a virtual terminal that native operating-system probes cannot inspect.
+		supportsANSI = func(int) bool { return true }
 	}
 	getSize := config.GetSize
 	if getSize == nil {
@@ -226,6 +229,7 @@ func New(config Config) *Console {
 		marks:              marks,
 		getenv:             getenv,
 		isTerminal:         isTerminal,
+		supportsANSI:       supportsANSI,
 		getSize:            getSize,
 		exit:               exit,
 		readSecret:         readSecret,
@@ -235,7 +239,6 @@ func New(config Config) *Console {
 
 // SetDefault replaces the console used by package-level helpers.
 // It panics when console is nil because package helpers always require a usable runtime.
-// @group Runtime
 func SetDefault(console *Console) {
 	if console == nil {
 		panic("console: default console cannot be nil")
@@ -247,7 +250,6 @@ func SetDefault(console *Console) {
 }
 
 // Default returns the console currently used by package-level helpers.
-// @group Runtime
 func Default() *Console {
 	defaultState.RLock()
 	console := defaultState.console
@@ -255,29 +257,30 @@ func Default() *Console {
 	return console
 }
 
-// Width returns the configured or detected terminal width and falls back to 80 columns.
-// @group Terminal
+// Width returns the configured or detected terminal width, capped at 32,768 columns, and falls back to 80 columns.
 func (c *Console) Width() int {
-	if c.width > 0 {
-		return c.width
+	if width := practicalTerminalWidth(c.width); width > 0 {
+		return width
 	}
 	if descriptor, ok := writerDescriptor(c.stdout); ok {
 		width, _, err := c.getSize(descriptor)
 		if err == nil && width > 0 {
-			return width
+			return practicalTerminalWidth(width)
 		}
 	}
-	if width, err := strconv.Atoi(strings.TrimSpace(c.getenv("COLUMNS"))); err == nil && width > 0 {
+	if width := environmentTerminalWidth(c.getenv("COLUMNS")); width > 0 {
 		return width
 	}
 	return defaultTerminalWidth
 }
 
 // IsInteractive reports whether both configured input and output are terminals unless explicitly overridden.
-// @group Terminal
 func (c *Console) IsInteractive() bool {
 	if c.interactiveEnabled != nil {
 		return *c.interactiveEnabled
+	}
+	if isCIEnvironment(c.getenv) {
+		return false
 	}
 	inputDescriptor, inputOK := readerDescriptor(c.stdinSource)
 	outputDescriptor, outputOK := writerDescriptor(c.stdout)
@@ -285,37 +288,31 @@ func (c *Console) IsInteractive() bool {
 }
 
 // SupportsColor reports whether ordinary output should contain ANSI styling.
-// @group Terminal
 func (c *Console) SupportsColor() bool {
 	return c.shouldColor(c.stdout)
 }
 
 // SupportsUnicode reports whether the console selected Unicode presentation characters.
-// @group Terminal
 func (c *Console) SupportsUnicode() bool {
 	return c.unicodeEnabled
 }
 
 // Width returns the width of the default console.
-// @group Terminal
 func Width() int {
 	return Default().Width()
 }
 
 // IsInteractive reports whether the default console is interactive.
-// @group Terminal
 func IsInteractive() bool {
 	return Default().IsInteractive()
 }
 
 // SupportsColor reports whether the default console emits ANSI styling.
-// @group Terminal
 func SupportsColor() bool {
 	return Default().SupportsColor()
 }
 
 // SupportsUnicode reports whether the default console uses Unicode presentation characters.
-// @group Terminal
 func SupportsUnicode() bool {
 	return Default().SupportsUnicode()
 }
@@ -372,7 +369,7 @@ func (c *Console) shouldColor(writer io.Writer) bool {
 		return false
 	}
 	descriptor, ok := writerDescriptor(writer)
-	return ok && c.isTerminal(descriptor)
+	return ok && c.isTerminal(descriptor) && c.supportsANSI(descriptor)
 }
 
 // shouldAnimate prevents transient carriage-return output from leaking into redirected logs.
@@ -380,14 +377,48 @@ func (c *Console) shouldAnimate() bool {
 	if c.animationsEnabled != nil && !*c.animationsEnabled {
 		return false
 	}
-	if c.animationsEnabled == nil && strings.EqualFold(strings.TrimSpace(c.getenv("TERM")), "dumb") {
-		return false
+	if c.animationsEnabled == nil {
+		if strings.EqualFold(strings.TrimSpace(c.getenv("TERM")), "dumb") || isCIEnvironment(c.getenv) {
+			return false
+		}
 	}
 	descriptor, ok := writerDescriptor(c.stdout)
-	if !ok || !c.isTerminal(descriptor) {
+	if !ok || !c.isTerminal(descriptor) || !c.supportsANSI(descriptor) {
 		return false
 	}
 	return c.animationsEnabled == nil || *c.animationsEnabled
+}
+
+// practicalTerminalWidth bounds allocations driven by a configured or detected terminal width.
+// The cap is far beyond practical terminal sizes while preventing hostile hooks from requesting
+// near-address-space-sized rules, tables, or boxes.
+func practicalTerminalWidth(width int) int {
+	if width < 1 {
+		return 0
+	}
+	return min(width, maximumTerminalWidth)
+}
+
+// environmentTerminalWidth parses COLUMNS without allowing integer overflow or impractical allocations.
+func environmentTerminalWidth(value string) int {
+	width, err := strconv.ParseUint(strings.TrimSpace(value), 10, 64)
+	if err != nil || width == 0 {
+		return 0
+	}
+	if width > maximumTerminalWidth {
+		return maximumTerminalWidth
+	}
+	return int(width)
+}
+
+// isCIEnvironment recognizes conventional truthy CI values without treating explicit false values as enabled.
+func isCIEnvironment(getenv func(string) string) bool {
+	switch strings.ToLower(strings.TrimSpace(getenv("CI"))) {
+	case "", "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
 }
 
 // environmentFlag follows common CLI semantics where only an empty value or zero is disabled.
@@ -441,42 +472,70 @@ func (c *Console) write(writer io.Writer, value string, stdout bool) {
 // The caller must hold either side of sessionMu so prompt ownership cannot change mid-write.
 func (c *Console) writeCoordinated(writer io.Writer, value string, stdout bool) (int, error) {
 	c.transientMu.Lock()
+	defer c.transientMu.Unlock()
 	c.outputMu.Lock()
+	defer c.outputMu.Unlock()
 	if c.active != nil && !c.partialLine {
-		_, _ = io.WriteString(c.stdout, clearTransientLine)
+		if _, err := writeConsoleString(c.stdout, clearTransientLine); err != nil {
+			return 0, err
+		}
 	}
-	written, err := io.WriteString(writer, value)
+	written, writeErr := writeConsoleString(writer, value)
 	visibleWritten := max(min(written, len(value)), 0)
 	if (stdout || c.stderrSharesStdout) && visibleWritten > 0 {
 		c.partialLine = !strings.HasSuffix(value[:visibleWritten], "\n")
 	}
+	var redrawErr error
 	if c.active != nil && !c.partialLine {
-		_, _ = io.WriteString(c.stdout, c.active.renderTransient())
+		_, redrawErr = writeConsoleString(c.stdout, c.active.renderTransient())
 	}
-	c.outputMu.Unlock()
-	c.transientMu.Unlock()
-	if written != len(value) && err == nil {
-		err = io.ErrShortWrite
-	}
-	return written, err
+	return written, errors.Join(writeErr, redrawErr)
 }
 
 // resumeTransient completes unterminated input and redraws a live display after an interactive prompt returns.
-func (c *Console) resumeTransient(lineTerminated bool) {
+func (c *Console) resumeTransient(lineTerminated bool) error {
 	c.transientMu.Lock()
 	defer c.transientMu.Unlock()
 	c.promptActive = false
 	if !c.partialLine {
-		return
+		return nil
 	}
 	c.outputMu.Lock()
 	defer c.outputMu.Unlock()
 	if !lineTerminated {
-		_, _ = io.WriteString(c.stdout, "\n")
+		written, err := writeConsoleString(c.stdout, "\n")
+		if written < 1 {
+			return err
+		}
+		c.partialLine = false
+		if err != nil {
+			if c.active == nil {
+				return err
+			}
+			_, redrawErr := writeConsoleString(c.stdout, c.active.renderTransient())
+			return errors.Join(err, redrawErr)
+		}
 	}
 	c.partialLine = false
 	if c.active == nil {
-		return
+		return nil
 	}
-	_, _ = io.WriteString(c.stdout, c.active.renderTransient())
+	_, err := writeConsoleString(c.stdout, c.active.renderTransient())
+	return err
+}
+
+// writeConsoleString restores the io.Writer contract when a destination silently accepts only a prefix.
+func writeConsoleString(writer io.Writer, value string) (int, error) {
+	written, err := writeTerminalString(writer, value)
+	if written < 0 {
+		written = 0
+		err = errors.Join(err, io.ErrShortWrite)
+	} else if written > len(value) {
+		written = len(value)
+		err = errors.Join(err, io.ErrShortWrite)
+	}
+	if written != len(value) && err == nil {
+		err = io.ErrShortWrite
+	}
+	return written, err
 }

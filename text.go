@@ -4,13 +4,14 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/rivo/uniseg"
 )
 
 const tabWidth = 8
 
 // StripANSI removes complete ANSI CSI, OSC, and ESC sequences from value.
 // Incomplete escape sequences are retained so malformed input is not silently discarded.
-// @group Text
 func StripANSI(value string) string {
 	var output strings.Builder
 	for index := 0; index < len(value); {
@@ -27,7 +28,6 @@ func StripANSI(value string) string {
 
 // StripANSI removes complete ANSI sequences from value through a Console instance.
 // Its behavior matches the package-level StripANSI helper.
-// @group Text
 func (c *Console) StripANSI(value string) string {
 	return StripANSI(value)
 }
@@ -35,7 +35,6 @@ func (c *Console) StripANSI(value string) string {
 // VisibleWidth returns the largest terminal-cell width among value's lines.
 // ANSI escapes and combining characters occupy no cells, tabs advance to an eight-cell stop,
 // and common East Asian and emoji runes occupy two cells.
-// @group Text
 func VisibleWidth(value string) int {
 	maximum := 0
 	current := 0
@@ -52,7 +51,6 @@ func VisibleWidth(value string) int {
 
 // VisibleWidth returns value's terminal-cell width through a Console instance.
 // Its behavior matches the package-level VisibleWidth helper.
-// @group Text
 func (c *Console) VisibleWidth(value string) int {
 	return VisibleWidth(value)
 }
@@ -60,14 +58,12 @@ func (c *Console) VisibleWidth(value string) int {
 // Truncate shortens each line of value to width terminal cells and uses an ellipsis when content is removed.
 // Active SGR styles and OSC 8 hyperlinks are closed before the ellipsis.
 // Values less than one produce an empty string.
-// @group Text
 func Truncate(value string, width int) string {
 	return truncateWithTail(value, width, "…")
 }
 
 // Truncate shortens value through a Console instance using the public Unicode ellipsis contract.
 // Its behavior matches the package-level Truncate helper regardless of the console's layout policy.
-// @group Text
 func (c *Console) Truncate(value string, width int) string {
 	return Truncate(value, width)
 }
@@ -75,7 +71,6 @@ func (c *Console) Truncate(value string, width int) string {
 // TruncateMiddle shortens each line of value to width terminal cells by replacing its center with an ellipsis.
 // Active SGR styles and OSC 8 hyperlinks are kept with the visible text on either side of the ellipsis.
 // Values less than one produce an empty string.
-// @group Text
 func TruncateMiddle(value string, width int) string {
 	if width < 1 {
 		return ""
@@ -89,7 +84,6 @@ func TruncateMiddle(value string, width int) string {
 
 // TruncateMiddle shortens value through a Console instance using the public Unicode ellipsis contract.
 // Its behavior matches the package-level TruncateMiddle helper regardless of the console's layout policy.
-// @group Text
 func (c *Console) TruncateMiddle(value string, width int) string {
 	return TruncateMiddle(value, width)
 }
@@ -119,7 +113,6 @@ func (c *Console) truncate(value string, width int) string {
 // at each line boundary so they cannot bleed into surrounding layout. Long unbroken words wrap at cell boundaries.
 // Breakable whitespace at the beginning or end of a resulting line is removed.
 // Values less than one are returned unchanged.
-// @group Text
 func Wrap(value string, width int) string {
 	if width < 1 || value == "" {
 		return value
@@ -130,14 +123,12 @@ func Wrap(value string, width int) string {
 
 // Wrap inserts terminal-cell-aware line breaks through a Console instance.
 // Its behavior matches the package-level Wrap helper.
-// @group Text
 func (c *Console) Wrap(value string, width int) string {
 	return Wrap(value, width)
 }
 
 // PadRight appends spaces until every line reaches width terminal cells.
 // Lines already at or beyond width are unchanged.
-// @group Text
 func PadRight(value string, width int) string {
 	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
 	for index, line := range lines {
@@ -151,7 +142,6 @@ func PadRight(value string, width int) string {
 
 // PadRight pads value to a terminal-cell width through a Console instance.
 // Its behavior matches the package-level PadRight helper.
-// @group Text
 func (c *Console) PadRight(value string, width int) string {
 	return PadRight(value, width)
 }
@@ -159,7 +149,6 @@ func (c *Console) PadRight(value string, width int) string {
 // PadLeft prepends spaces until every line reaches width terminal cells.
 // Lines already at or beyond width are unchanged. Tabs are expanded only on lines that need padding
 // because leading spaces otherwise change their terminal tab stops.
-// @group Text
 func PadLeft(value string, width int) string {
 	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
 	for index, line := range lines {
@@ -174,7 +163,6 @@ func PadLeft(value string, width int) string {
 
 // PadLeft pads value on the left through a Console instance.
 // Its behavior matches the package-level PadLeft helper.
-// @group Text
 func (c *Console) PadLeft(value string, width int) string {
 	return PadLeft(value, width)
 }
@@ -182,7 +170,6 @@ func (c *Console) PadLeft(value string, width int) string {
 // PadCenter adds spaces around every line until it reaches width terminal cells.
 // Odd padding places the extra space on the right. Lines already at or beyond width are unchanged.
 // Tabs are expanded only on lines that need padding so their alignment remains stable.
-// @group Text
 func PadCenter(value string, width int) string {
 	lines := strings.Split(strings.ReplaceAll(value, "\r\n", "\n"), "\n")
 	for index, line := range lines {
@@ -199,14 +186,12 @@ func PadCenter(value string, width int) string {
 
 // PadCenter pads value on both sides through a Console instance.
 // Its behavior matches the package-level PadCenter helper.
-// @group Text
 func (c *Console) PadCenter(value string, width int) string {
 	return PadCenter(value, width)
 }
 
 // ExpandTabs replaces tabs with spaces at eight-cell stops on each line.
 // ANSI escape sequences do not affect tab positions.
-// @group Text
 func ExpandTabs(value string) string {
 	if !strings.Contains(value, "\t") {
 		return value
@@ -233,14 +218,12 @@ func ExpandTabs(value string) string {
 
 // ExpandTabs replaces tabs through a Console instance.
 // Its behavior matches the package-level ExpandTabs helper.
-// @group Text
 func (c *Console) ExpandTabs(value string) string {
 	return ExpandTabs(value)
 }
 
 // Indent prefixes every line in value with prefix.
 // Empty input remains empty.
-// @group Text
 func Indent(value, prefix string) string {
 	if value == "" {
 		return ""
@@ -250,7 +233,6 @@ func Indent(value, prefix string) string {
 
 // Indent prefixes each line through a Console instance.
 // Its behavior matches the package-level Indent helper.
-// @group Text
 func (c *Console) Indent(value, prefix string) string {
 	return Indent(value, prefix)
 }
@@ -265,7 +247,7 @@ func sanitizeLayoutText(value string, multiline bool) string {
 			sequence := value[index:end]
 			if isSGRSequence(sequence) {
 				output.WriteString(sequence)
-			} else if _, hyperlink := osc8Target(sequence); hyperlink {
+			} else if safeOSC8Sequence(sequence) {
 				output.WriteString(sequence)
 			}
 			index = end
@@ -275,6 +257,9 @@ func sanitizeLayoutText(value string, multiline bool) string {
 		runeValue, size := utf8.DecodeRuneInString(value[index:])
 		raw := value[index : index+size]
 		index += size
+		if runeValue == utf8.RuneError && size == 1 && raw[0] >= 0x80 && raw[0] <= 0x9f {
+			continue
+		}
 		switch runeValue {
 		case '\n', '\r':
 			if multiline {
@@ -302,7 +287,6 @@ func singleLineLayoutText(value string) string {
 // displayToken contains one escape, rune, or logical newline and its layout properties.
 type displayToken struct {
 	raw        string
-	value      rune
 	width      int
 	space      bool
 	newline    bool
@@ -310,16 +294,33 @@ type displayToken struct {
 	dynamicTab bool
 }
 
-// displayTokens tokenizes styled text while retaining the exact bytes needed to rebuild it.
+// displayPart retains one source rune or escape while grapheme analysis operates on visible text only.
+type displayPart struct {
+	raw    string
+	escape bool
+}
+
+// displayCluster contains the byte boundary and cell geometry for one extended grapheme cluster.
+type displayCluster struct {
+	end   int
+	width int
+	space bool
+}
+
+// displayTokens tokenizes styled text while retaining exact source bytes and grapheme boundaries.
 func displayTokens(value string) []displayToken {
 	tokens := make([]displayToken, 0, len(value))
-	joinNext := false
-	lastBaseToken := -1
-	regionalPending := false
+	parts := make([]displayPart, 0)
+	var visible strings.Builder
+	flush := func() {
+		tokens = appendDisplayRun(tokens, parts, visible.String())
+		parts = parts[:0]
+		visible.Reset()
+	}
 
 	for index := 0; index < len(value); {
 		if end, ok := ansiSequenceEnd(value, index); ok {
-			tokens = append(tokens, displayToken{raw: value[index:end], escape: true})
+			parts = append(parts, displayPart{raw: value[index:end], escape: true})
 			index = end
 			continue
 		}
@@ -327,74 +328,84 @@ func displayTokens(value string) []displayToken {
 		runeValue, size := utf8.DecodeRuneInString(value[index:])
 		raw := value[index : index+size]
 		index += size
-
-		if runeValue == '\n' {
+		switch runeValue {
+		case '\n':
+			flush()
 			tokens = append(tokens, displayToken{raw: raw, newline: true})
-			joinNext = false
-			lastBaseToken = -1
-			regionalPending = false
-			continue
-		}
-		if runeValue == '\r' {
+		case '\r':
+			flush()
 			tokens = append(tokens, displayToken{raw: raw})
-			lastBaseToken = -1
-			continue
-		}
-		if runeValue == '\t' {
+		case '\t':
+			flush()
 			tokens = append(tokens, displayToken{raw: raw, space: true, dynamicTab: true})
-			lastBaseToken = -1
-			regionalPending = false
-			continue
+		default:
+			parts = append(parts, displayPart{raw: raw})
+			visible.WriteString(raw)
 		}
-		if runeValue == '\ufe0f' {
-			if lastBaseToken >= 0 && tokens[lastBaseToken].width == 1 && !tokens[lastBaseToken].space {
-				tokens[lastBaseToken].width = 2
-			}
-			tokens = append(tokens, displayToken{raw: raw})
-			continue
+	}
+	flush()
+	return tokens
+}
+
+// appendDisplayRun maps grapheme geometry back onto source parts without allowing ANSI to split a cluster.
+func appendDisplayRun(tokens []displayToken, parts []displayPart, visible string) []displayToken {
+	if len(parts) == 0 {
+		return tokens
+	}
+	if visible == "" {
+		for _, part := range parts {
+			tokens = append(tokens, displayToken{raw: part.raw, escape: part.escape})
 		}
-		if runeValue == '\ufe0e' {
-			if lastBaseToken >= 0 && tokens[lastBaseToken].width == 2 &&
-				isEmojiPresentationRune(tokens[lastBaseToken].value) {
-				tokens[lastBaseToken].width = 1
-			}
-			tokens = append(tokens, displayToken{raw: raw})
+		return tokens
+	}
+
+	clusters := displayClusters(visible)
+	clusterIndex := 0
+	visibleOffset := 0
+	firstPart := true
+	for _, part := range parts {
+		if part.escape {
+			tokens = append(tokens, displayToken{raw: part.raw, escape: true})
 			continue
 		}
 
-		baseWidth := runeCellWidth(runeValue)
-		width := baseWidth
-		if joinNext && width > 0 {
-			width = 0
-			joinNext = false
+		cluster := clusters[clusterIndex]
+		width := 0
+		if firstPart {
+			width = cluster.width
 		}
-		if runeValue == '\u200d' {
-			joinNext = true
-		}
-
-		if isRegionalIndicator(runeValue) {
-			if regionalPending {
-				width = 0
-				regionalPending = false
-			} else {
-				width = 2
-				regionalPending = true
-			}
-		} else if width > 0 {
-			regionalPending = false
-		}
-
-		tokens = append(tokens, displayToken{
-			raw:   raw,
-			value: runeValue,
-			width: width,
-			space: isBreakableSpace(runeValue),
-		})
-		if baseWidth > 0 {
-			lastBaseToken = len(tokens) - 1
+		tokens = append(tokens, displayToken{raw: part.raw, width: width, space: cluster.space})
+		visibleOffset += len(part.raw)
+		if visibleOffset == cluster.end {
+			clusterIndex++
+			firstPart = true
+		} else {
+			firstPart = false
 		}
 	}
 	return tokens
+}
+
+// displayClusters delegates generated Unicode tables and UAX #29 rules to uniseg so this package does not
+// accumulate hand-maintained emoji ranges or split user-perceived characters as Unicode evolves.
+func displayClusters(value string) []displayCluster {
+	clusters := make([]displayCluster, 0, utf8.RuneCountInString(value))
+	rest := value
+	offset := 0
+	state := -1
+	for len(rest) > 0 {
+		var cluster string
+		var width int
+		cluster, rest, width, state = uniseg.FirstGraphemeClusterInString(rest, state)
+		offset += len(cluster)
+		firstRune, _ := utf8.DecodeRuneInString(cluster)
+		clusters = append(clusters, displayCluster{
+			end:   offset,
+			width: normalizedClusterWidth(cluster, width),
+			space: isBreakableSpace(firstRune),
+		})
+	}
+	return clusters
 }
 
 // ansiSequenceEnd returns the exclusive end of one complete escape sequence at start.
@@ -415,18 +426,9 @@ func ansiSequenceEnd(value string, start int) (int, bool) {
 		}
 		return start, false
 	case ']':
-		for index := start + 2; index < len(value); index++ {
-			if value[index] == '\a' {
-				return index + 1, true
-			}
-			if value[index] == '\r' || value[index] == '\n' {
-				return start, false
-			}
-			if value[index] == '\x1b' && index+1 < len(value) && value[index+1] == '\\' {
-				return index + 2, true
-			}
-		}
-		return start, false
+		return ansiStringEnd(value, start, true)
+	case 'P', 'X', '^', '_':
+		return ansiStringEnd(value, start, false)
 	default:
 		index := start + 1
 		for index < len(value) && value[index] >= 0x20 && value[index] <= 0x2f {
@@ -439,21 +441,24 @@ func ansiSequenceEnd(value string, start int) (int, bool) {
 	}
 }
 
-// runeCellWidth approximates wcwidth with standard-library Unicode tables and stable wide ranges.
-func runeCellWidth(runeValue rune) int {
-	if runeValue == 0 || runeValue < 0x20 || runeValue >= 0x7f && runeValue < 0xa0 {
-		return 0
+// ansiStringEnd returns one complete OSC or ST-terminated control string.
+// An ESC inside the payload is data unless it forms ST; callers validate any retained payload separately.
+func ansiStringEnd(value string, start int, bellTerminated bool) (int, bool) {
+	for index := start + 2; index < len(value); index++ {
+		if bellTerminated && value[index] == '\a' {
+			return index + 1, true
+		}
+		if bellTerminated && (value[index] == '\r' || value[index] == '\n') {
+			return start, false
+		}
+		if value[index] != '\x1b' {
+			continue
+		}
+		if index+1 < len(value) && value[index+1] == '\\' {
+			return index + 2, true
+		}
 	}
-	if runeValue == '\u200d' || runeValue >= 0xfe00 && runeValue <= 0xfe0f ||
-		runeValue >= 0xe0100 && runeValue <= 0xe01ef ||
-		runeValue >= 0x1f3fb && runeValue <= 0x1f3ff ||
-		unicode.Is(unicode.Mn, runeValue) || unicode.Is(unicode.Me, runeValue) || unicode.Is(unicode.Cf, runeValue) {
-		return 0
-	}
-	if isWideRune(runeValue) {
-		return 2
-	}
-	return 1
+	return start, false
 }
 
 // isBreakableSpace keeps non-breaking Unicode separators attached to their surrounding text.
@@ -464,52 +469,6 @@ func isBreakableSpace(runeValue rune) bool {
 	default:
 		return unicode.IsSpace(runeValue)
 	}
-}
-
-// isRegionalIndicator reports whether runeValue participates in a two-rune flag glyph.
-func isRegionalIndicator(runeValue rune) bool {
-	return runeValue >= 0x1f1e6 && runeValue <= 0x1f1ff
-}
-
-// isWideRune covers the stable East Asian and emoji ranges commonly rendered as two cells.
-func isWideRune(runeValue rune) bool {
-	return runeValue >= 0x1100 && runeValue <= 0x115f ||
-		runeValue == 0x2329 || runeValue == 0x232a ||
-		isEmojiPresentationRune(runeValue) ||
-		runeValue >= 0x2e80 && runeValue <= 0x303e ||
-		runeValue >= 0x3040 && runeValue <= 0xa4cf ||
-		runeValue >= 0xac00 && runeValue <= 0xd7a3 ||
-		runeValue >= 0xf900 && runeValue <= 0xfaff ||
-		runeValue >= 0xfe10 && runeValue <= 0xfe19 ||
-		runeValue >= 0xfe30 && runeValue <= 0xfe6f ||
-		runeValue >= 0xff00 && runeValue <= 0xff60 ||
-		runeValue >= 0xffe0 && runeValue <= 0xffe6 ||
-		runeValue >= 0x1f000 && runeValue <= 0x1faff ||
-		runeValue >= 0x20000 && runeValue <= 0x3fffd
-}
-
-// isEmojiPresentationRune covers symbols whose default Unicode presentation commonly occupies two terminal cells.
-func isEmojiPresentationRune(runeValue rune) bool {
-	return runeValue >= 0x231a && runeValue <= 0x231b ||
-		runeValue >= 0x23e9 && runeValue <= 0x23ec ||
-		runeValue == 0x23f0 || runeValue == 0x23f3 ||
-		runeValue >= 0x25fd && runeValue <= 0x25fe ||
-		runeValue >= 0x2614 && runeValue <= 0x2615 ||
-		runeValue >= 0x2648 && runeValue <= 0x2653 ||
-		runeValue == 0x267f || runeValue == 0x2693 || runeValue == 0x26a1 ||
-		runeValue >= 0x26aa && runeValue <= 0x26ab ||
-		runeValue >= 0x26bd && runeValue <= 0x26be ||
-		runeValue >= 0x26c4 && runeValue <= 0x26c5 ||
-		runeValue == 0x26ce || runeValue == 0x26d4 || runeValue == 0x26ea ||
-		runeValue >= 0x26f2 && runeValue <= 0x26f3 ||
-		runeValue == 0x26f5 || runeValue == 0x26fa || runeValue == 0x26fd ||
-		runeValue == 0x2705 || runeValue >= 0x270a && runeValue <= 0x270b ||
-		runeValue == 0x2728 || runeValue == 0x274c || runeValue == 0x274e ||
-		runeValue >= 0x2753 && runeValue <= 0x2755 || runeValue == 0x2757 ||
-		runeValue >= 0x2795 && runeValue <= 0x2797 ||
-		runeValue == 0x27b0 || runeValue == 0x27bf ||
-		runeValue >= 0x2b1b && runeValue <= 0x2b1c ||
-		runeValue == 0x2b50 || runeValue == 0x2b55
 }
 
 // tokenWidthAt resolves tab stops while leaving fixed-width tokens unchanged.
@@ -887,4 +846,23 @@ func osc8Target(sequence string) (string, bool) {
 		return "", false
 	}
 	return content[separator+1:], true
+}
+
+// safeOSC8Sequence reports whether a hyperlink contains only valid UTF-8 printable metadata.
+func safeOSC8Sequence(sequence string) bool {
+	if _, ok := osc8Target(sequence); !ok {
+		return false
+	}
+	payload := strings.TrimPrefix(sequence, "\x1b]")
+	payload = strings.TrimSuffix(payload, "\a")
+	payload = strings.TrimSuffix(payload, "\x1b\\")
+	if !utf8.ValidString(payload) {
+		return false
+	}
+	for _, runeValue := range payload {
+		if unicode.IsControl(runeValue) {
+			return false
+		}
+	}
+	return true
 }

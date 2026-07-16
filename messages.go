@@ -7,7 +7,6 @@ import (
 )
 
 // ANSI style and color codes are grouped here so callers can compose them with Style.
-// @group Styling
 const (
 	// ColorReset resets ANSI styling.
 	ColorReset = "\033[0m"
@@ -42,154 +41,129 @@ const (
 )
 
 // Print writes values to ordinary output without adding a newline.
-// @group Output
 func (c *Console) Print(values ...any) {
 	c.write(c.stdout, fmt.Sprint(values...), true)
 }
 
 // Printf writes formatted ordinary output without adding a newline.
-// @group Output
 func (c *Console) Printf(format string, arguments ...any) {
 	c.write(c.stdout, fmt.Sprintf(format, arguments...), true)
 }
 
 // Println writes values to ordinary output followed by a newline.
-// @group Output
 func (c *Console) Println(values ...any) {
 	c.write(c.stdout, fmt.Sprintln(values...), true)
 }
 
 // NewLine writes one blank line to ordinary output.
-// @group Output
 func (c *Console) NewLine() {
 	c.write(c.stdout, "\n", true)
 }
 
 // StdoutWriter returns a writer coordinated with this console's prompts and transient displays.
 // The destination is captured when the adapter is constructed, and its write results are preserved.
-// @group Output
 func (c *Console) StdoutWriter() io.Writer {
 	return consoleOutputWriter{console: c, destination: c.stdout, stdout: true}
 }
 
 // StderrWriter returns a writer coordinated with this console's prompts and transient displays.
 // The destination is captured when the adapter is constructed, and its write results are preserved.
-// @group Output
 func (c *Console) StderrWriter() io.Writer {
 	return consoleOutputWriter{console: c, destination: c.stderr}
 }
 
 // ActionMark returns the action indicator.
-// @group Marks
 func (c *Console) ActionMark() string {
-	return c.mark(ColorGray, c.marks.Action)
+	return c.mark(c.stdout, ColorGray, c.marks.Action)
 }
 
 // InfoMark returns the informational indicator.
-// @group Marks
 func (c *Console) InfoMark() string {
-	return c.mark(ColorGray, c.marks.Info)
+	return c.mark(c.stdout, ColorGray, c.marks.Info)
 }
 
 // SuccessMark returns the success indicator.
-// @group Marks
 func (c *Console) SuccessMark() string {
-	return c.mark(ColorGreen, c.marks.Success)
+	return c.mark(c.stdout, ColorGreen, c.marks.Success)
 }
 
 // WarnMark returns the warning indicator.
-// @group Marks
 func (c *Console) WarnMark() string {
-	return c.mark(ColorYellow, c.marks.Warn)
+	return c.mark(c.stdout, ColorYellow, c.marks.Warn)
 }
 
-// ErrorMark returns the error indicator using the stdout color policy retained for GoForj compatibility.
-// @group Marks
+// ErrorMark returns the error indicator using the stderr color policy.
 func (c *Console) ErrorMark() string {
-	return c.mark(ColorRed, c.marks.Error)
+	return c.mark(c.stderr, ColorRed, c.marks.Error)
 }
 
 // DebugMark returns the debug indicator.
-// @group Marks
 func (c *Console) DebugMark() string {
-	return c.mark(ColorGray, c.marks.Debug)
+	return c.mark(c.stdout, ColorGray, c.marks.Debug)
 }
 
 // Action prints an action message.
-// @group Messages
 func (c *Console) Action(message string) {
 	c.message(c.stdout, c.ActionMark(), message, true)
 }
 
 // Actionf prints a formatted action message.
-// @group Messages
 func (c *Console) Actionf(format string, arguments ...any) {
 	c.Action(fmt.Sprintf(format, arguments...))
 }
 
 // Info prints an informational message.
-// @group Messages
 func (c *Console) Info(message string) {
 	c.message(c.stdout, c.InfoMark(), message, true)
 }
 
 // Infof prints a formatted informational message.
-// @group Messages
 func (c *Console) Infof(format string, arguments ...any) {
 	c.Info(fmt.Sprintf(format, arguments...))
 }
 
 // Success prints a success message.
-// @group Messages
 func (c *Console) Success(message string) {
 	c.message(c.stdout, c.SuccessMark(), message, true)
 }
 
 // Successf prints a formatted success message.
-// @group Messages
 func (c *Console) Successf(format string, arguments ...any) {
 	c.Success(fmt.Sprintf(format, arguments...))
 }
 
 // Warn prints a warning message.
-// @group Messages
 func (c *Console) Warn(message string) {
 	c.message(c.stdout, c.WarnMark(), message, true)
 }
 
 // Warnf prints a formatted warning message.
-// @group Messages
 func (c *Console) Warnf(format string, arguments ...any) {
 	c.Warn(fmt.Sprintf(format, arguments...))
 }
 
 // Error prints an error message to stderr.
-// @group Messages
 func (c *Console) Error(message string) {
 	c.message(c.stderr, c.ErrorMark(), message, false)
 }
 
 // Errorf prints a formatted error message to stderr.
-// @group Messages
 func (c *Console) Errorf(format string, arguments ...any) {
 	c.Error(fmt.Sprintf(format, arguments...))
 }
 
 // Fatal prints an error message and exits with status 1.
-// @group Messages
 func (c *Console) Fatal(message string) {
 	c.Error(message)
 	c.exit(1)
 }
 
 // Fatalf prints a formatted error message and exits with status 1.
-// @group Messages
 func (c *Console) Fatalf(format string, arguments ...any) {
 	c.Fatal(fmt.Sprintf(format, arguments...))
 }
 
 // Debug prints a diagnostic message when debug output is enabled.
-// @group Messages
 func (c *Console) Debug(message string) {
 	if !c.isDebugEnabled() {
 		return
@@ -198,7 +172,6 @@ func (c *Console) Debug(message string) {
 }
 
 // Debugf prints a formatted diagnostic message when debug output is enabled.
-// @group Messages
 func (c *Console) Debugf(format string, arguments ...any) {
 	if !c.isDebugEnabled() {
 		return
@@ -207,7 +180,6 @@ func (c *Console) Debugf(format string, arguments ...any) {
 }
 
 // Style applies ANSI style sequences to value when color output is enabled.
-// @group Styling
 func (c *Console) Style(value string, styles ...string) string {
 	if value == "" || len(styles) == 0 || !c.shouldColor(c.stdout) {
 		return value
@@ -216,123 +188,94 @@ func (c *Console) Style(value string, styles ...string) string {
 }
 
 // Colorize applies one ANSI color to value when color output is enabled.
-// @group Styling
 func (c *Console) Colorize(color, value string) string {
 	return c.Style(value, color)
 }
 
 // Print writes values through the default console without adding a newline.
-// @group Output
 func Print(values ...any) { Default().Print(values...) }
 
 // Printf writes formatted output through the default console without adding a newline.
-// @group Output
 func Printf(format string, arguments ...any) { Default().Printf(format, arguments...) }
 
 // Println writes values through the default console followed by a newline.
-// @group Output
 func Println(values ...any) { Default().Println(values...) }
 
 // NewLine writes one blank line through the default console.
-// @group Output
 func NewLine() { Default().NewLine() }
 
 // StdoutWriter returns a coordinated writer using a snapshot of the current default console.
 // Later calls to SetDefault do not retarget an existing writer.
-// @group Output
 func StdoutWriter() io.Writer { return Default().StdoutWriter() }
 
 // StderrWriter returns a coordinated writer using a snapshot of the current default console.
 // Later calls to SetDefault do not retarget an existing writer.
-// @group Output
 func StderrWriter() io.Writer { return Default().StderrWriter() }
 
 // ActionMark returns the default console's action indicator.
-// @group Marks
 func ActionMark() string { return Default().ActionMark() }
 
 // InfoMark returns the default console's informational indicator.
-// @group Marks
 func InfoMark() string { return Default().InfoMark() }
 
 // SuccessMark returns the default console's success indicator.
-// @group Marks
 func SuccessMark() string { return Default().SuccessMark() }
 
 // WarnMark returns the default console's warning indicator.
-// @group Marks
 func WarnMark() string { return Default().WarnMark() }
 
 // ErrorMark returns the default console's error indicator.
-// @group Marks
 func ErrorMark() string { return Default().ErrorMark() }
 
 // DebugMark returns the default console's debug indicator.
-// @group Marks
 func DebugMark() string { return Default().DebugMark() }
 
 // Action prints an action message through the default console.
-// @group Messages
 func Action(message string) { Default().Action(message) }
 
 // Actionf prints a formatted action message through the default console.
-// @group Messages
 func Actionf(format string, arguments ...any) { Default().Actionf(format, arguments...) }
 
 // Info prints an informational message through the default console.
-// @group Messages
 func Info(message string) { Default().Info(message) }
 
 // Infof prints a formatted informational message through the default console.
-// @group Messages
 func Infof(format string, arguments ...any) { Default().Infof(format, arguments...) }
 
 // Success prints a success message through the default console.
-// @group Messages
 func Success(message string) { Default().Success(message) }
 
 // Successf prints a formatted success message through the default console.
-// @group Messages
 func Successf(format string, arguments ...any) { Default().Successf(format, arguments...) }
 
 // Warn prints a warning message through the default console.
-// @group Messages
 func Warn(message string) { Default().Warn(message) }
 
 // Warnf prints a formatted warning message through the default console.
-// @group Messages
 func Warnf(format string, arguments ...any) { Default().Warnf(format, arguments...) }
 
 // Error prints an error message through the default console.
-// @group Messages
 func Error(message string) { Default().Error(message) }
 
 // Errorf prints a formatted error message through the default console.
-// @group Messages
 func Errorf(format string, arguments ...any) { Default().Errorf(format, arguments...) }
 
 // Fatal prints an error through the default console and exits with status 1.
-// @group Messages
 func Fatal(message string) { Default().Fatal(message) }
 
 // Fatalf prints a formatted error through the default console and exits with status 1.
-// @group Messages
 func Fatalf(format string, arguments ...any) { Default().Fatalf(format, arguments...) }
 
 // Debug prints a diagnostic message through the default console when enabled.
-// @group Messages
 func Debug(message string) { Default().Debug(message) }
 
 // Debugf prints a formatted diagnostic message through the default console when enabled.
-// @group Messages
 func Debugf(format string, arguments ...any) { Default().Debugf(format, arguments...) }
 
 // Style applies ANSI styles using the default console's color policy.
-// @group Styling
 func Style(value string, styles ...string) string { return Default().Style(value, styles...) }
 
 // Colorize applies an ANSI color using the default console's color policy.
-// @group Styling
 func Colorize(color, value string) string { return Default().Colorize(color, value) }
 
 // consoleOutputWriter adapts coordinated console output to APIs that accept io.Writer.
@@ -353,23 +296,23 @@ func (w consoleOutputWriter) Write(value []byte) (int, error) {
 	return written, err
 }
 
-// message writes one complete semantic message under the console output lock.
+// message writes one sanitized and balanced semantic message under the console output lock.
 func (c *Console) message(writer io.Writer, mark, message string, stdout bool) {
-	if !strings.ContainsAny(message, "\r\n") {
-		c.write(writer, mark+" "+message+"\n", stdout)
-		return
-	}
+	c.write(writer, c.renderSemanticMessage(mark, message), stdout)
+}
 
+// renderSemanticMessage removes terminal controls while preserving safe styling and hanging indentation.
+func (c *Console) renderSemanticMessage(mark, message string) string {
 	lines := strings.Split(sanitizeLayoutText(message, true), "\n")
 	lines = balanceANSILines(lines)
 	indent := strings.Repeat(" ", VisibleWidth(mark)+1)
-	c.write(writer, mark+" "+strings.Join(lines, "\n"+indent)+"\n", stdout)
+	return mark + " " + strings.Join(lines, "\n"+indent) + "\n"
 }
 
-// mark styles one semantic symbol according to the public stdout-oriented color contract.
-func (c *Console) mark(color, symbol string) string {
+// mark styles one semantic symbol according to its destination's color capability.
+func (c *Console) mark(writer io.Writer, color, symbol string) string {
 	symbol = singleLineLayoutText(symbol)
-	if symbol == "" || !c.shouldColor(c.stdout) {
+	if symbol == "" || !c.shouldColor(writer) {
 		return symbol
 	}
 	return color + symbol + ColorReset

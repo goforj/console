@@ -3,7 +3,6 @@ package console
 import "strings"
 
 // TreeNode contains one label and its ordered child nodes.
-// @group Trees
 type TreeNode struct {
 	// Label is displayed on the node's first physical line.
 	Label string
@@ -12,21 +11,18 @@ type TreeNode struct {
 }
 
 // Node creates a tree node and preserves the supplied child order.
-// @group Trees
 func Node(label string, children ...TreeNode) TreeNode {
 	return TreeNode{Label: label, Children: append([]TreeNode(nil), children...)}
 }
 
 // Tree prints a static tree followed by a newline.
 // Empty trees produce no output.
-// @group Trees
 func (c *Console) Tree(nodes ...TreeNode) {
 	c.printLayout(c.RenderTree(nodes...))
 }
 
 // RenderTree returns a static tree without a trailing newline.
 // Root labels remain unprefixed, while descendants use connectors selected by the console's Unicode policy.
-// @group Trees
 func (c *Console) RenderTree(nodes ...TreeNode) string {
 	if len(nodes) == 0 {
 		return ""
@@ -41,11 +37,9 @@ func (c *Console) RenderTree(nodes ...TreeNode) string {
 }
 
 // Tree prints a static tree through the default console.
-// @group Trees
 func Tree(nodes ...TreeNode) { Default().Tree(nodes...) }
 
 // RenderTree renders a static tree through the default console.
-// @group Trees
 func RenderTree(nodes ...TreeNode) string { return Default().RenderTree(nodes...) }
 
 // treeCharacters contains the equal-width connector units used to preserve hanging indentation.

@@ -34,6 +34,28 @@ type failingOutputWriter struct {
 // shortOutputWriter accepts only a prefix without reporting the required error.
 type shortOutputWriter struct{}
 
+// invalidCountWriter violates the destination count contract to test adapter normalization.
+type invalidCountWriter struct {
+	count int
+	err   error
+}
+
+// scriptedWriteResult describes one destination response; a negative accepted count means all bytes.
+type scriptedWriteResult struct {
+	accepted int
+	err      error
+}
+
+// scriptedOutputWriter records accepted prefixes while returning deterministic write results.
+type scriptedOutputWriter struct {
+	results []scriptedWriteResult
+	output  bytes.Buffer
+	calls   int
+}
+
+// staticTransient provides a stable frame for output-coordination tests.
+type staticTransient string
+
 // Write reports the configured failure without accepting bytes.
 func (w failingOutputWriter) Write([]byte) (int, error) {
 	return 0, w.err
@@ -42,6 +64,37 @@ func (w failingOutputWriter) Write([]byte) (int, error) {
 // Write simulates a broken destination so the adapter can restore the io.Writer contract.
 func (shortOutputWriter) Write(value []byte) (int, error) {
 	return min(2, len(value)), nil
+}
+
+// Write returns the configured invalid result without accepting bytes.
+func (w invalidCountWriter) Write([]byte) (int, error) {
+	return w.count, w.err
+}
+
+// Write applies the next scripted result and records only the accepted prefix.
+func (w *scriptedOutputWriter) Write(value []byte) (int, error) {
+	result := scriptedWriteResult{accepted: -1}
+	if w.calls < len(w.results) {
+		result = w.results[w.calls]
+	}
+	w.calls++
+	accepted := result.accepted
+	if accepted < 0 {
+		accepted = len(value)
+	}
+	accepted = max(min(accepted, len(value)), 0)
+	_, _ = w.output.Write(value[:accepted])
+	return accepted, result.err
+}
+
+// String returns the accepted output accumulated by the scripted writer.
+func (w *scriptedOutputWriter) String() string {
+	return w.output.String()
+}
+
+// renderTransient returns the stable replacement line.
+func (s staticTransient) renderTransient() string {
+	return string(s)
 }
 
 // String records one formatting evaluation before returning a stable value.
@@ -152,6 +205,78 @@ func TestConsoleOutputWritersReportSilentShortWrites(t *testing.T) {
 	if count != 2 || !errors.Is(err, io.ErrShortWrite) {
 		t.Fatalf("Write() = (%d, %v), want (2, io.ErrShortWrite)", count, err)
 	}
+}
+
+// TestConsoleOutputWritersNormalizeInvalidCounts verifies adapters never repeat a broken writer's contract violation.
+func TestConsoleOutputWritersNormalizeInvalidCounts(t *testing.T) {
+	t.Parallel()
+
+	wantErr := errors.New("destination failed")
+	tests := []struct {
+		name      string
+		count     int
+		wantCount int
+	}{
+		{name: "negative", count: -1, wantCount: 0},
+		{name: "oversized", count: 99, wantCount: len("value")},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			console := New(Config{
+				Stdout: invalidCountWriter{count: test.count, err: wantErr},
+				Getenv: getenvFrom(nil),
+			})
+			count, err := console.StdoutWriter().Write([]byte("value"))
+			if count != test.wantCount || !errors.Is(err, wantErr) || !errors.Is(err, io.ErrShortWrite) {
+				t.Fatalf("Write() = (%d, %v), want (%d, joined destination and short-write errors)", count, err, test.wantCount)
+			}
+		})
+	}
+}
+
+// TestConsoleOutputWritersPropagateTransientCoordinationErrors verifies clear and redraw failures remain observable.
+func TestConsoleOutputWritersPropagateTransientCoordinationErrors(t *testing.T) {
+	t.Run("clear", func(t *testing.T) {
+		wantErr := errors.New("clear failed")
+		stdout := &scriptedOutputWriter{results: []scriptedWriteResult{{accepted: 0, err: wantErr}}}
+		console := New(Config{Stdout: stdout, Getenv: getenvFrom(nil)})
+		console.active = staticTransient("frame")
+
+		count, err := io.WriteString(console.StdoutWriter(), "durable\n")
+		if count != 0 || !errors.Is(err, wantErr) {
+			t.Fatalf("Write() = (%d, %v), want (0, %v)", count, err, wantErr)
+		}
+		if got := stdout.String(); got != "" {
+			t.Fatalf("output = %q after clear failure, want empty", got)
+		}
+		if stdout.calls != 1 {
+			t.Fatalf("write calls = %d, want 1", stdout.calls)
+		}
+	})
+
+	t.Run("redraw", func(t *testing.T) {
+		wantErr := errors.New("redraw failed")
+		stdout := &scriptedOutputWriter{results: []scriptedWriteResult{
+			{accepted: -1},
+			{accepted: -1},
+			{accepted: 0, err: wantErr},
+		}}
+		console := New(Config{Stdout: stdout, Getenv: getenvFrom(nil)})
+		console.active = staticTransient("frame")
+
+		count, err := io.WriteString(console.StdoutWriter(), "durable\n")
+		if count != len("durable\n") || !errors.Is(err, wantErr) {
+			t.Fatalf("Write() = (%d, %v), want (%d, %v)", count, err, len("durable\n"), wantErr)
+		}
+		if got, want := stdout.String(), clearTransientLine+"durable\n"; got != want {
+			t.Fatalf("output = %q, want %q", got, want)
+		}
+		if stdout.calls != 3 {
+			t.Fatalf("write calls = %d, want 3", stdout.calls)
+		}
+	})
 }
 
 // TestPackageOutputWritersSnapshotDefault verifies existing adapters do not change destinations after SetDefault.
@@ -355,8 +480,8 @@ func TestConsoleSemanticMessagesBalanceMultilineStyles(t *testing.T) {
 	}
 }
 
-// TestConsoleSemanticMessagesKeepSingleLineBytes preserves the established pass-through behavior for one-line messages.
-func TestConsoleSemanticMessagesKeepSingleLineBytes(t *testing.T) {
+// TestConsoleSemanticMessagesSanitizeAndBalanceSingleLines prevents control injection and style leakage.
+func TestConsoleSemanticMessagesSanitizeAndBalanceSingleLines(t *testing.T) {
 	t.Parallel()
 
 	var stdout bytes.Buffer
@@ -366,16 +491,29 @@ func TestConsoleSemanticMessagesKeepSingleLineBytes(t *testing.T) {
 		UnicodeEnabled: boolPointer(false),
 		Getenv:         getenvFrom(nil),
 	})
-	message := "before\x1b[20Cafter\a"
+	message := ColorRed + "before\x1b[20Cafter\a"
 	console.Info(message)
 
-	if got, want := stdout.String(), "i "+message+"\n"; got != want {
+	if got, want := stdout.String(), "i "+ColorRed+"beforeafter"+ColorReset+"\n"; got != want {
 		t.Fatalf("single-line semantic output = %q, want %q", got, want)
 	}
 }
 
-// TestConsoleMarksHonorStdoutColorCapability verifies the GoForj-compatible mark color policy.
-func TestConsoleMarksHonorStdoutColorCapability(t *testing.T) {
+// TestConsolePrintKeepsRawTerminalBytes verifies low-level output remains an intentional escape hatch.
+func TestConsolePrintKeepsRawTerminalBytes(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	console := New(Config{Stdout: &stdout, Getenv: getenvFrom(nil)})
+	raw := ColorRed + "before\x1b[20Cafter\a"
+	console.Print(raw)
+	if got := stdout.String(); got != raw {
+		t.Fatalf("Print() output = %q, want exact bytes %q", got, raw)
+	}
+}
+
+// TestConsoleMarksHonorDestinationColorCapability verifies stderr policy independently controls error marks.
+func TestConsoleMarksHonorDestinationColorCapability(t *testing.T) {
 	t.Parallel()
 
 	stdout := &descriptorBuffer{descriptor: 61}
@@ -400,7 +538,7 @@ func TestConsoleMarksHonorStdoutColorCapability(t *testing.T) {
 		{name: "info", got: console.InfoMark(), want: ColorGray + "I" + ColorReset},
 		{name: "success", got: console.SuccessMark(), want: ColorGreen + "S" + ColorReset},
 		{name: "warn", got: console.WarnMark(), want: ColorYellow + "W" + ColorReset},
-		{name: "error", got: console.ErrorMark(), want: ColorRed + "E" + ColorReset},
+		{name: "error", got: console.ErrorMark(), want: "E"},
 		{name: "debug", got: console.DebugMark(), want: ColorGray + "D" + ColorReset},
 	}
 	for _, test := range markTests {
@@ -414,8 +552,26 @@ func TestConsoleMarksHonorStdoutColorCapability(t *testing.T) {
 	if got, want := stdout.String(), ColorGreen+"S"+ColorReset+" ok\n"; got != want {
 		t.Fatalf("colored semantic stdout = %q, want %q", got, want)
 	}
-	if got, want := stderr.String(), ColorRed+"E"+ColorReset+" bad\n"; got != want {
+	if got, want := stderr.String(), "E bad\n"; got != want {
 		t.Fatalf("redirected semantic stderr = %q, want %q", got, want)
+	}
+
+	inverseStdout := &descriptorBuffer{descriptor: 63}
+	inverseStderr := &descriptorBuffer{descriptor: 64}
+	inverse := New(Config{
+		Stdout: inverseStdout,
+		Stderr: inverseStderr,
+		Marks:  &marks,
+		Getenv: getenvFrom(nil),
+		IsTerminal: func(descriptor int) bool {
+			return descriptor == 64
+		},
+	})
+	if got := inverse.ActionMark(); got != "A" {
+		t.Fatalf("redirected stdout action mark = %q, want %q", got, "A")
+	}
+	if got, want := inverse.ErrorMark(), ColorRed+"E"+ColorReset; got != want {
+		t.Fatalf("terminal stderr error mark = %q, want %q", got, want)
 	}
 }
 

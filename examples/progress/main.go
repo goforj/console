@@ -2,6 +2,7 @@
 package main
 
 import (
+	"io"
 	"os"
 
 	"github.com/goforj/console"
@@ -9,11 +10,17 @@ import (
 
 // main advances determinate work and records an explicit successful outcome.
 func main() {
+	run(os.Stdout, os.Stderr)
+}
+
+// run writes the progress lifecycle to injected streams so its durable output is testable.
+func run(stdout, stderr io.Writer) {
 	color := false
 	animations := false
 	unicode := true
 	console.SetDefault(console.New(console.Config{
-		Stdout:            os.Stdout,
+		Stdout:            stdout,
+		Stderr:            stderr,
 		ColorEnabled:      &color,
 		UnicodeEnabled:    &unicode,
 		AnimationsEnabled: &animations,
@@ -25,8 +32,8 @@ func main() {
 		return
 	}
 	// · Packaging release
-	progress.Set(40)
-	progress.Update("Uploading release")
+	defer progress.Stop()
+	progress.Step(40, "Uploading release")
 	progress.Add(60)
 	progress.Complete("Release ready")
 	// ✔ Release ready

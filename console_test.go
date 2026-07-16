@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"math"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -314,11 +316,15 @@ func TestConsoleWidthUsesConfigurationDescriptorEnvironmentAndFallback(t *testin
 		wantSizeCalls int
 	}{
 		{name: "configured width", configured: 44, descriptor: true, detected: 120, columns: "99", want: 44, wantSizeCalls: 0},
+		{name: "configured width is capped", configured: math.MaxInt, descriptor: true, detected: 120, columns: "99", want: maximumTerminalWidth, wantSizeCalls: 0},
 		{name: "descriptor width", descriptor: true, detected: 120, columns: "99", want: 120, wantSizeCalls: 1},
+		{name: "descriptor width is capped", descriptor: true, detected: math.MaxInt, columns: "99", want: maximumTerminalWidth, wantSizeCalls: 1},
 		{name: "zero descriptor width uses columns", descriptor: true, detected: 0, columns: " 91 ", want: 91, wantSizeCalls: 1},
 		{name: "negative descriptor width uses columns", descriptor: true, detected: -5, columns: "92", want: 92, wantSizeCalls: 1},
 		{name: "descriptor error uses columns", descriptor: true, detectionErr: true, columns: "93", want: 93, wantSizeCalls: 1},
 		{name: "writer without descriptor uses columns", columns: "94", want: 94, wantSizeCalls: 0},
+		{name: "columns width is capped", columns: strconv.Itoa(math.MaxInt), want: maximumTerminalWidth, wantSizeCalls: 0},
+		{name: "unsigned columns width is capped", columns: "18446744073709551615", want: maximumTerminalWidth, wantSizeCalls: 0},
 		{name: "invalid columns uses fallback", columns: "wide", want: 80, wantSizeCalls: 0},
 		{name: "zero columns uses fallback", columns: "0", want: 80, wantSizeCalls: 0},
 		{name: "negative columns uses fallback", columns: "-1", want: 80, wantSizeCalls: 0},
@@ -372,11 +378,15 @@ func TestInteractiveDetectionRequiresTerminalInputAndOutput(t *testing.T) {
 		outputDescriptor bool
 		inputTerminal    bool
 		outputTerminal   bool
+		env              map[string]string
 		want             bool
 	}{
 		{name: "explicit enabled", override: boolPointer(true), want: true},
+		{name: "explicit enabled beats CI", override: boolPointer(true), env: map[string]string{"CI": "true"}, want: true},
 		{name: "explicit disabled", override: boolPointer(false), inputDescriptor: true, outputDescriptor: true, inputTerminal: true, outputTerminal: true, want: false},
 		{name: "both terminals", inputDescriptor: true, outputDescriptor: true, inputTerminal: true, outputTerminal: true, want: true},
+		{name: "CI disables automatic prompts", env: map[string]string{"CI": "1"}, inputDescriptor: true, outputDescriptor: true, inputTerminal: true, outputTerminal: true, want: false},
+		{name: "false CI value permits prompts", env: map[string]string{"CI": "false"}, inputDescriptor: true, outputDescriptor: true, inputTerminal: true, outputTerminal: true, want: true},
 		{name: "redirected input", inputDescriptor: true, outputDescriptor: true, outputTerminal: true, want: false},
 		{name: "redirected output", inputDescriptor: true, outputDescriptor: true, inputTerminal: true, want: false},
 		{name: "input without descriptor", outputDescriptor: true, inputTerminal: true, outputTerminal: true, want: false},
@@ -400,6 +410,7 @@ func TestInteractiveDetectionRequiresTerminalInputAndOutput(t *testing.T) {
 				Stdin:              stdin,
 				Stdout:             stdout,
 				InteractiveEnabled: test.override,
+				Getenv:             getenvFrom(test.env),
 				IsTerminal: func(descriptor int) bool {
 					switch descriptor {
 					case 31:
@@ -433,11 +444,14 @@ func TestAnimationDetectionRequiresTerminalOutput(t *testing.T) {
 		want       bool
 	}{
 		{name: "automatic terminal", descriptor: true, terminal: true, want: true},
+		{name: "automatic CI", env: map[string]string{"CI": "true"}, descriptor: true, terminal: true, want: false},
+		{name: "automatic false CI value", env: map[string]string{"CI": "off"}, descriptor: true, terminal: true, want: true},
 		{name: "automatic dumb terminal", env: map[string]string{"TERM": " DUMB "}, descriptor: true, terminal: true, want: false},
 		{name: "automatic redirected descriptor", descriptor: true, want: false},
 		{name: "automatic writer without descriptor", terminal: true, want: false},
 		{name: "explicit disabled terminal", override: boolPointer(false), descriptor: true, terminal: true, want: false},
 		{name: "explicit enabled terminal", override: boolPointer(true), descriptor: true, terminal: true, want: true},
+		{name: "explicit enabled CI terminal", override: boolPointer(true), env: map[string]string{"CI": "yes"}, descriptor: true, terminal: true, want: true},
 		{name: "explicit enabled dumb terminal", override: boolPointer(true), env: map[string]string{"TERM": "dumb"}, descriptor: true, terminal: true, want: true},
 		{name: "explicit enabled redirected descriptor", override: boolPointer(true), descriptor: true, want: false},
 	}
@@ -467,6 +481,69 @@ func TestAnimationDetectionRequiresTerminalOutput(t *testing.T) {
 				t.Fatalf("shouldAnimate() = %t, want %t", got, test.want)
 			}
 		})
+	}
+}
+
+// TestCIEnvironmentUsesConventionalBooleanValues verifies automation policy ignores explicit false values.
+func TestCIEnvironmentUsesConventionalBooleanValues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		value string
+		want  bool
+	}{
+		{value: "", want: false},
+		{value: "0", want: false},
+		{value: " false ", want: false},
+		{value: "NO", want: false},
+		{value: "off", want: false},
+		{value: "1", want: true},
+		{value: "true", want: true},
+		{value: "anything", want: true},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.value, func(t *testing.T) {
+			t.Parallel()
+			if got := isCIEnvironment(getenvFrom(map[string]string{"CI": test.value})); got != test.want {
+				t.Fatalf("isCIEnvironment(CI=%q) = %t, want %t", test.value, got, test.want)
+			}
+		})
+	}
+}
+
+// TestANSICapabilityGatesAutomaticTerminalFeatures verifies native terminal mode remains a required capability.
+func TestANSICapabilityGatesAutomaticTerminalFeatures(t *testing.T) {
+	t.Parallel()
+
+	stdout := &descriptorBuffer{descriptor: 71}
+	console := New(Config{
+		Stdout:     stdout,
+		Getenv:     getenvFrom(nil),
+		IsTerminal: func(int) bool { return true },
+	})
+	console.supportsANSI = func(int) bool { return false }
+	if console.SupportsColor() {
+		t.Fatal("SupportsColor() = true without ANSI capability, want false")
+	}
+	if console.shouldAnimate() {
+		t.Fatal("shouldAnimate() = true without ANSI capability, want false")
+	}
+
+	forced := New(Config{
+		Stdout:            stdout,
+		ColorEnabled:      boolPointer(true),
+		IsTerminal:        func(int) bool { return true },
+		AnimationsEnabled: boolPointer(true),
+		Getenv:            getenvFrom(nil),
+	})
+	forced.supportsANSI = func(int) bool { return false }
+	if !forced.SupportsColor() {
+		t.Fatal("SupportsColor() = false with explicit override, want true")
+	}
+	if forced.shouldAnimate() {
+		t.Fatal("shouldAnimate() = true without ANSI capability, want false")
 	}
 }
 

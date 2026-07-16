@@ -107,6 +107,32 @@ func TestProgressRedirectedOutputIsStable(t *testing.T) {
 	}
 }
 
+// TestProgressStepUpdatesAmountAndMessageAtomically verifies one logical step produces one coherent redraw.
+func TestProgressStepUpdatesAmountAndMessageAtomically(t *testing.T) {
+	console, stdout, _, _ := newLoaderTestConsole(true)
+	progress := console.Progress(4, "prepare")
+	if err := progress.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	_ = waitForLoaderWrite(t, stdout)
+	drainLoaderWrites(stdout)
+
+	progress.Step(2, "compile packages")
+	want := clearTransientLine + "compile packages [============------------]  50%"
+	if got := waitForLoaderWrite(t, stdout); got != want {
+		t.Fatalf("Step() redraw = %q, want %q", got, want)
+	}
+	requireNoLoaderWrite(t, stdout)
+
+	progress.Complete("")
+	drainLoaderWrites(stdout)
+	progress.Step(1, "ignored")
+	requireNoLoaderWrite(t, stdout)
+	if got := stdout.String(); !strings.HasSuffix(got, clearTransientLine+"+ compile packages\n") {
+		t.Fatalf("completed output = %q, want Step message as the outcome", got)
+	}
+}
+
 // TestRedirectedProgressAndLoaderDoNotContend verifies transient ownership is reserved for live terminal displays.
 func TestRedirectedProgressAndLoaderDoNotContend(t *testing.T) {
 	console, stdout, stderr, _ := newLoaderTestConsole(false)

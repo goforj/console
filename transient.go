@@ -2,14 +2,12 @@ package console
 
 import (
 	"errors"
-	"io"
 	"strings"
 )
 
 const clearTransientLine = "\r\x1b[2K"
 
 // ErrTransientActive is returned when another live loader or progress display owns the transient line.
-// @group Terminal
 var ErrTransientActive = errors.New("console: another transient display is already active")
 
 // transientOwner renders one replaceable line while the console coordinates durable output.
@@ -43,7 +41,7 @@ func (c *Console) renderTransient(owner transientOwner) {
 		return
 	}
 	c.outputMu.Lock()
-	_, _ = io.WriteString(c.stdout, owner.renderTransient())
+	_, _ = writeConsoleString(c.stdout, owner.renderTransient())
 	c.outputMu.Unlock()
 }
 
@@ -56,10 +54,10 @@ func (c *Console) releaseTransient(owner transientOwner, durableOutcome bool) {
 	}
 	c.outputMu.Lock()
 	if c.partialLine && durableOutcome && !c.promptActive {
-		_, _ = io.WriteString(c.stdout, "\n")
+		_, _ = writeConsoleString(c.stdout, "\n")
 		c.partialLine = false
 	} else if !c.partialLine {
-		_, _ = io.WriteString(c.stdout, clearTransientLine)
+		_, _ = writeConsoleString(c.stdout, clearTransientLine)
 	}
 	c.active = nil
 	c.outputMu.Unlock()

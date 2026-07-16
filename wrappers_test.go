@@ -20,6 +20,7 @@ func TestConsoleMethodsHavePackageHelpers(t *testing.T) {
 		"AskSecret":          AskSecret,
 		"Box":                Box,
 		"Choose":             Choose,
+		"ChooseIndex":        ChooseIndex,
 		"Colorize":           Colorize,
 		"Confirm":            Confirm,
 		"Debug":              Debug,

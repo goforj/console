@@ -8,7 +8,6 @@ import (
 )
 
 // KeyValue contains one ordered label and value for KeyValues.
-// @group Layout
 type KeyValue struct {
 	// Key is the label displayed in the left column.
 	Key string
@@ -17,37 +16,40 @@ type KeyValue struct {
 }
 
 // KV creates one ordered key/value entry.
-// @group Layout
 func KV(key string, value any) KeyValue {
 	return KeyValue{Key: key, Value: value}
 }
 
 // Section prints a visually distinct section heading.
-// @group Layout
 func (c *Console) Section(title string) {
 	c.printLayout(c.RenderSection(title))
 }
 
 // RenderSection returns a visually distinct section heading without a trailing newline.
-// @group Layout
 func (c *Console) RenderSection(title string) string {
 	title = singleLineLayoutText(title)
 	mark := "◇"
 	if !c.unicodeEnabled {
 		mark = ">"
 	}
-	return c.Colorize(ColorCyan, mark) + " " + c.Style(title, ColorBoldWhite)
+	width := max(c.Width(), 1)
+	mark = c.truncate(mark, width)
+	remaining := width - VisibleWidth(mark)
+	styledMark := c.Colorize(ColorCyan, mark)
+	if title == "" || remaining < 2 {
+		return styledMark
+	}
+	title = c.truncate(title, remaining-1)
+	return styledMark + " " + c.Style(title, ColorBoldWhite)
 }
 
 // Rule prints a horizontal rule, optionally interrupted by title.
-// @group Layout
 func (c *Console) Rule(title string) {
 	c.printLayout(c.RenderRule(title))
 }
 
 // RenderRule returns a horizontal rule without a trailing newline.
 // The optional title interrupts the rule when the configured width allows it.
-// @group Layout
 func (c *Console) RenderRule(title string) string {
 	title = singleLineLayoutText(title)
 	character := "─"
@@ -66,14 +68,12 @@ func (c *Console) RenderRule(title string) string {
 }
 
 // KeyValues prints ordered and visibly aligned key/value entries.
-// @group Layout
 func (c *Console) KeyValues(entries ...KeyValue) {
 	c.printLayout(c.RenderKeyValues(entries...))
 }
 
 // RenderKeyValues returns ordered and visibly aligned key/value entries without a trailing newline.
 // Empty entries produce an empty string.
-// @group Layout
 func (c *Console) RenderKeyValues(entries ...KeyValue) string {
 	if len(entries) == 0 {
 		return ""
@@ -116,14 +116,12 @@ func (c *Console) RenderKeyValues(entries ...KeyValue) string {
 }
 
 // KeyValueMap prints a map in sorted-key order for deterministic output.
-// @group Layout
 func (c *Console) KeyValueMap(values map[string]any) {
 	c.printLayout(c.RenderKeyValueMap(values))
 }
 
 // RenderKeyValueMap returns map entries in sorted-key order without a trailing newline.
 // Empty maps produce an empty string.
-// @group Layout
 func (c *Console) RenderKeyValueMap(values map[string]any) string {
 	keys := make([]string, 0, len(values))
 	for key := range values {
@@ -138,77 +136,61 @@ func (c *Console) RenderKeyValueMap(values map[string]any) string {
 }
 
 // List prints an unordered list and applies hanging indentation to wrapped items.
-// @group Layout
 func (c *Console) List(items ...string) {
 	c.printLayout(c.RenderList(items...))
 }
 
 // RenderList returns an unordered list with hanging indentation and no trailing newline.
 // Empty items produce an empty string.
-// @group Layout
 func (c *Console) RenderList(items ...string) string {
 	return strings.TrimSuffix(c.renderList(items, false), "\n")
 }
 
 // NumberedList prints a one-based ordered list with aligned numeric prefixes.
-// @group Layout
 func (c *Console) NumberedList(items ...string) {
 	c.printLayout(c.RenderNumberedList(items...))
 }
 
 // RenderNumberedList returns a one-based ordered list with hanging indentation and no trailing newline.
 // Empty items produce an empty string.
-// @group Layout
 func (c *Console) RenderNumberedList(items ...string) string {
 	return strings.TrimSuffix(c.renderList(items, true), "\n")
 }
 
 // Section prints a section heading through the default console.
-// @group Layout
 func Section(title string) { Default().Section(title) }
 
 // RenderSection renders a section heading through the default console.
-// @group Layout
 func RenderSection(title string) string { return Default().RenderSection(title) }
 
 // Rule prints a horizontal rule through the default console.
-// @group Layout
 func Rule(title string) { Default().Rule(title) }
 
 // RenderRule renders a horizontal rule through the default console.
-// @group Layout
 func RenderRule(title string) string { return Default().RenderRule(title) }
 
 // KeyValues prints ordered key/value entries through the default console.
-// @group Layout
 func KeyValues(entries ...KeyValue) { Default().KeyValues(entries...) }
 
 // RenderKeyValues renders ordered key/value entries through the default console.
-// @group Layout
 func RenderKeyValues(entries ...KeyValue) string { return Default().RenderKeyValues(entries...) }
 
 // KeyValueMap prints a sorted key/value map through the default console.
-// @group Layout
 func KeyValueMap(values map[string]any) { Default().KeyValueMap(values) }
 
 // RenderKeyValueMap renders a sorted key/value map through the default console.
-// @group Layout
 func RenderKeyValueMap(values map[string]any) string { return Default().RenderKeyValueMap(values) }
 
 // List prints an unordered list through the default console.
-// @group Layout
 func List(items ...string) { Default().List(items...) }
 
 // RenderList renders an unordered list through the default console.
-// @group Layout
 func RenderList(items ...string) string { return Default().RenderList(items...) }
 
 // NumberedList prints an ordered list through the default console.
-// @group Layout
 func NumberedList(items ...string) { Default().NumberedList(items...) }
 
 // RenderNumberedList renders an ordered list through the default console.
-// @group Layout
 func RenderNumberedList(items ...string) string { return Default().RenderNumberedList(items...) }
 
 // printLayout writes one rendered layout value followed by exactly one newline.

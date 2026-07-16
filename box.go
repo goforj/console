@@ -3,11 +3,9 @@ package console
 import "strings"
 
 // BoxOption configures one rendered box.
-// @group Boxes
 type BoxOption func(*boxOptions)
 
 // BoxTitle adds a title to the top border.
-// @group Boxes
 func BoxTitle(title string) BoxOption {
 	return func(options *boxOptions) {
 		options.title = title
@@ -17,7 +15,7 @@ func BoxTitle(title string) BoxOption {
 // BoxWidth fixes the total visible width, including borders and padding.
 // Values below the structural minimum expand enough to preserve a valid frame.
 // Values less than one select an automatic width bounded by the console width.
-// @group Boxes
+// Larger values are bounded by the console width when the structural minimum permits.
 func BoxWidth(width int) BoxOption {
 	return func(options *boxOptions) {
 		options.width = width
@@ -25,8 +23,7 @@ func BoxWidth(width int) BoxOption {
 }
 
 // BoxPadding sets the horizontal padding on both sides of the content.
-// Negative values are treated as zero.
-// @group Boxes
+// Negative values are treated as zero, and padding is capped when necessary to fit the console width.
 func BoxPadding(padding int) BoxOption {
 	return func(options *boxOptions) {
 		options.padding = max(padding, 0)
@@ -35,7 +32,6 @@ func BoxPadding(padding int) BoxOption {
 
 // BoxColor sets the ANSI color used for borders when styling is enabled.
 // An empty color leaves borders unstyled.
-// @group Boxes
 func BoxColor(color string) BoxOption {
 	return func(options *boxOptions) {
 		options.color = color
@@ -43,13 +39,11 @@ func BoxColor(color string) BoxOption {
 }
 
 // Box prints content inside a box followed by a newline.
-// @group Boxes
 func (c *Console) Box(content string, options ...BoxOption) {
 	c.write(c.stdout, c.RenderBox(content, options...)+"\n", true)
 }
 
 // RenderBox returns content inside a box without a trailing newline.
-// @group Boxes
 func (c *Console) RenderBox(content string, options ...BoxOption) string {
 	configuration := boxOptions{padding: 1, color: ColorGray}
 	for _, option := range options {
@@ -57,6 +51,9 @@ func (c *Console) RenderBox(content string, options ...BoxOption) string {
 			option(&configuration)
 		}
 	}
+	consoleWidth := max(c.Width(), 1)
+	maximumPadding := max((consoleWidth-3)/2, 0)
+	configuration.padding = min(configuration.padding, maximumPadding)
 
 	borders := c.borders()
 	title := singleLineLayoutText(configuration.title)
@@ -76,7 +73,9 @@ func (c *Console) RenderBox(content string, options ...BoxOption) string {
 		if title != "" {
 			outerWidth = max(outerWidth, VisibleWidth(title)+5)
 		}
-		outerWidth = min(outerWidth, max(c.Width(), minimumWidth))
+		outerWidth = min(outerWidth, max(consoleWidth, minimumWidth))
+	} else {
+		outerWidth = min(outerWidth, max(consoleWidth, minimumWidth))
 	}
 	outerWidth = max(outerWidth, minimumWidth)
 	innerWidth := max(outerWidth-2-configuration.padding*2, 1)
@@ -109,11 +108,9 @@ func (c *Console) RenderBox(content string, options ...BoxOption) string {
 }
 
 // Box prints a box through the default console.
-// @group Boxes
 func Box(content string, options ...BoxOption) { Default().Box(content, options...) }
 
 // RenderBox renders a box using the default console.
-// @group Boxes
 func RenderBox(content string, options ...BoxOption) string {
 	return Default().RenderBox(content, options...)
 }

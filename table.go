@@ -3,12 +3,10 @@ package console
 import "strings"
 
 // TableOption configures one rendered table.
-// @group Tables
 type TableOption func(*tableOptions)
 
 // TableCompact removes the outer frame and separates columns with two spaces.
 // A compact table with headers retains one horizontal separator for readability.
-// @group Tables
 func TableCompact() TableOption {
 	return func(options *tableOptions) {
 		options.compact = true
@@ -18,7 +16,6 @@ func TableCompact() TableOption {
 // TableWidths sets content widths by zero-based column position.
 // Values less than one leave that column automatic, and configured widths may
 // still shrink when the complete table would exceed the console width.
-// @group Tables
 func TableWidths(widths ...int) TableOption {
 	configured := append([]int(nil), widths...)
 	return func(options *tableOptions) {
@@ -28,7 +25,6 @@ func TableWidths(widths ...int) TableOption {
 
 // TableRightAlign right-aligns the headers and values in the selected zero-based columns.
 // Negative and out-of-range columns are ignored.
-// @group Tables
 func TableRightAlign(columns ...int) TableOption {
 	configured := append([]int(nil), columns...)
 	return func(options *tableOptions) {
@@ -42,7 +38,6 @@ func TableRightAlign(columns ...int) TableOption {
 
 // TableCenterAlign centers the headers and values in the selected zero-based columns.
 // Negative and out-of-range columns are ignored.
-// @group Tables
 func TableCenterAlign(columns ...int) TableOption {
 	configured := append([]int(nil), columns...)
 	return func(options *tableOptions) {
@@ -57,7 +52,6 @@ func TableCenterAlign(columns ...int) TableOption {
 // Table prints a table followed by a newline.
 // The default presentation is bordered; ragged rows are padded, and cells wrap
 // when their automatic or configured columns must shrink.
-// @group Tables
 func (c *Console) Table(headers []string, rows [][]string, options ...TableOption) {
 	rendered := c.RenderTable(headers, rows, options...)
 	if rendered == "" {
@@ -68,7 +62,6 @@ func (c *Console) Table(headers []string, rows [][]string, options ...TableOptio
 
 // RenderTable returns a table without a trailing newline.
 // Empty headers and rows produce an empty string.
-// @group Tables
 func (c *Console) RenderTable(headers []string, rows [][]string, options ...TableOption) string {
 	columnCount := len(headers)
 	for _, row := range rows {
@@ -106,7 +99,7 @@ func (c *Console) RenderTable(headers []string, rows [][]string, options ...Tabl
 			break
 		}
 		if width > 0 {
-			widths[column] = width
+			widths[column] = min(width, max(c.Width(), 1))
 		}
 	}
 	c.fitTableWidths(widths, configuration.compact)
@@ -119,13 +112,11 @@ func (c *Console) RenderTable(headers []string, rows [][]string, options ...Tabl
 }
 
 // Table prints a table through the default console.
-// @group Tables
 func Table(headers []string, rows [][]string, options ...TableOption) {
 	Default().Table(headers, rows, options...)
 }
 
 // RenderTable renders a table using the default console.
-// @group Tables
 func RenderTable(headers []string, rows [][]string, options ...TableOption) string {
 	return Default().RenderTable(headers, rows, options...)
 }

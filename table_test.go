@@ -2,6 +2,7 @@ package console
 
 import (
 	"bytes"
+	"math"
 	"strings"
 	"testing"
 )
@@ -420,6 +421,19 @@ func TestRenderTableConfiguredWidthsStillFitConsole(t *testing.T) {
 	for _, value := range []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "kl", "mn", "op", "qr", "st"} {
 		if !strings.Contains(got, value) {
 			t.Fatalf("RenderTable(TableWidths()) lost wrapped content %q: %q", value, got)
+		}
+	}
+}
+
+// TestRenderTableBoundsExtremeWidths verifies configured dimensions are normalized before arithmetic.
+func TestRenderTableBoundsExtremeWidths(t *testing.T) {
+	t.Parallel()
+
+	console, _ := newTableTestConsole(20, true, false)
+	got := console.RenderTable([]string{"Name", "State"}, [][]string{{"api", "ready"}}, TableWidths(math.MaxInt, math.MaxInt))
+	for index, line := range strings.Split(got, "\n") {
+		if width := VisibleWidth(line); width > 20 {
+			t.Fatalf("line %d width = %d, want at most 20: %q", index, width, line)
 		}
 	}
 }

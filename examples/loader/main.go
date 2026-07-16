@@ -2,6 +2,7 @@
 package main
 
 import (
+	"io"
 	"os"
 
 	"github.com/goforj/console"
@@ -9,12 +10,17 @@ import (
 
 // main runs one loader lifecycle without terminal control sequences.
 func main() {
+	run(os.Stdout, os.Stderr)
+}
+
+// run writes the loader lifecycle to injected streams so its durable output is testable.
+func run(stdout, stderr io.Writer) {
 	color := false
 	animations := false
 	unicode := true
 	console.SetDefault(console.New(console.Config{
-		Stdout:            os.Stdout,
-		Stderr:            os.Stderr,
+		Stdout:            stdout,
+		Stderr:            stderr,
 		ColorEnabled:      &color,
 		UnicodeEnabled:    &unicode,
 		AnimationsEnabled: &animations,
@@ -26,6 +32,7 @@ func main() {
 		return
 	}
 	// · Downloading modules
+	defer loader.Stop()
 	loader.Update("Verifying modules")
 	loader.Success("Modules ready")
 	// ✔ Modules ready

@@ -60,6 +60,7 @@ func TestPromptMethodsRejectNonInteractiveInputWithoutReading(t *testing.T) {
 		{name: "ask secret", call: func() error { _, err := console.AskSecret("Password"); return err }},
 		{name: "confirm", call: func() error { _, err := console.Confirm("Continue", true); return err }},
 		{name: "choose", call: func() error { _, err := console.Choose("Pick", []string{"one"}, 0); return err }},
+		{name: "choose index", call: func() error { _, err := console.ChooseIndex("Pick", []string{"one"}, 0); return err }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -77,6 +78,240 @@ func TestPromptMethodsRejectNonInteractiveInputWithoutReading(t *testing.T) {
 	}
 	if got := stderr.String(); got != "" {
 		t.Fatalf("stderr = %q, want empty", got)
+	}
+}
+
+// TestPromptMethodsPropagateInitialOutputErrors verifies input is never consumed after a prompt cannot be shown.
+func TestPromptMethodsPropagateInitialOutputErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(*Console) error
+	}{
+		{name: "ask", call: func(console *Console) error { _, err := console.Ask("Name"); return err }},
+		{name: "ask default", call: func(console *Console) error { _, err := console.AskDefault("Name", "Ada"); return err }},
+		{name: "ask secret", call: func(console *Console) error { _, err := console.AskSecret("Password"); return err }},
+		{name: "confirm", call: func(console *Console) error { _, err := console.Confirm("Continue", true); return err }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wantErr := errors.New("prompt output failed")
+			reader := &promptReadSpy{}
+			secretCalls := 0
+			interactive := true
+			console := New(Config{
+				Stdin:              reader,
+				Stdout:             failingOutputWriter{err: wantErr},
+				ColorEnabled:       boolPointer(false),
+				InteractiveEnabled: &interactive,
+				UnicodeEnabled:     boolPointer(false),
+				Getenv:             getenvFrom(nil),
+				ReadSecret: func() (string, error) {
+					secretCalls++
+					return "secret", nil
+				},
+			})
+
+			if err := test.call(console); !errors.Is(err, wantErr) {
+				t.Fatalf("prompt error = %v, want %v", err, wantErr)
+			}
+			if reader.reads != 0 {
+				t.Fatalf("input reads = %d, want 0", reader.reads)
+			}
+			if secretCalls != 0 {
+				t.Fatalf("secret reads = %d, want 0", secretCalls)
+			}
+			if console.promptActive || console.partialLine {
+				t.Fatalf("prompt state = (active %t, partial %t), want cleared", console.promptActive, console.partialLine)
+			}
+		})
+	}
+}
+
+// TestChoiceMethodsPropagatePreludeOutputErrors verifies choice input waits until every option is visible.
+func TestChoiceMethodsPropagatePreludeOutputErrors(t *testing.T) {
+	wantErr := errors.New("choice output failed")
+	reader := &promptReadSpy{}
+	interactive := true
+	console := New(Config{
+		Stdin:              reader,
+		Stdout:             failingOutputWriter{err: wantErr},
+		ColorEnabled:       boolPointer(false),
+		InteractiveEnabled: &interactive,
+		UnicodeEnabled:     boolPointer(false),
+		Getenv:             getenvFrom(nil),
+	})
+
+	choice, err := console.Choose("Pick", []string{"one"}, -1)
+	if choice != "" || !errors.Is(err, wantErr) {
+		t.Fatalf("Choose() = (%q, %v), want (empty, %v)", choice, err, wantErr)
+	}
+	index, err := console.ChooseIndex("Pick", []string{"one"}, -1)
+	if index != -1 || !errors.Is(err, wantErr) {
+		t.Fatalf("ChooseIndex() = (%d, %v), want (-1, %v)", index, err, wantErr)
+	}
+	if reader.reads != 0 {
+		t.Fatalf("input reads = %d, want 0", reader.reads)
+	}
+}
+
+// TestPromptPartialOutputFailureCompletesLineAndRestoresTransient verifies failed prompts leave reusable state.
+func TestPromptPartialOutputFailureCompletesLineAndRestoresTransient(t *testing.T) {
+	wantErr := errors.New("partial prompt failed")
+	stdout := &scriptedOutputWriter{results: []scriptedWriteResult{
+		{accepted: -1},
+		{accepted: 2, err: wantErr},
+		{accepted: -1},
+		{accepted: -1},
+	}}
+	reader := &promptReadSpy{}
+	interactive := true
+	console := New(Config{
+		Stdin:              reader,
+		Stdout:             stdout,
+		ColorEnabled:       boolPointer(false),
+		InteractiveEnabled: &interactive,
+		UnicodeEnabled:     boolPointer(false),
+		Getenv:             getenvFrom(nil),
+	})
+	console.active = staticTransient("frame")
+
+	value, err := console.Ask("Name")
+	if value != "" || !errors.Is(err, wantErr) {
+		t.Fatalf("Ask() = (%q, %v), want (empty, %v)", value, err, wantErr)
+	}
+	if reader.reads != 0 {
+		t.Fatalf("input reads = %d, want 0", reader.reads)
+	}
+	if console.promptActive || console.partialLine {
+		t.Fatalf("prompt state = (active %t, partial %t), want cleared", console.promptActive, console.partialLine)
+	}
+	if got, want := stdout.String(), clearTransientLine+"> \nframe"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+}
+
+// TestChoicePartialPreludeFailureCompletesLineAndRestoresTransient verifies list failures stop before input.
+func TestChoicePartialPreludeFailureCompletesLineAndRestoresTransient(t *testing.T) {
+	wantErr := errors.New("partial choice failed")
+	stdout := &scriptedOutputWriter{results: []scriptedWriteResult{
+		{accepted: -1},
+		{accepted: 4, err: wantErr},
+		{accepted: -1},
+		{accepted: -1},
+	}}
+	reader := &promptReadSpy{}
+	interactive := true
+	console := New(Config{
+		Stdin:              reader,
+		Stdout:             stdout,
+		ColorEnabled:       boolPointer(false),
+		InteractiveEnabled: &interactive,
+		UnicodeEnabled:     boolPointer(false),
+		Getenv:             getenvFrom(nil),
+	})
+	console.active = staticTransient("frame")
+
+	index, err := console.ChooseIndex("Pick", []string{"one"}, -1)
+	if index != -1 || !errors.Is(err, wantErr) {
+		t.Fatalf("ChooseIndex() = (%d, %v), want (-1, %v)", index, err, wantErr)
+	}
+	if reader.reads != 0 {
+		t.Fatalf("input reads = %d, want 0", reader.reads)
+	}
+	if console.promptActive || console.partialLine {
+		t.Fatalf("prompt state = (active %t, partial %t), want cleared", console.promptActive, console.partialLine)
+	}
+	if got, want := stdout.String(), clearTransientLine+"Pick\nframe"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+}
+
+// TestPromptReturnsInputAndTransientCleanupErrors verifies coordinated redraw failures are not discarded.
+func TestPromptReturnsInputAndTransientCleanupErrors(t *testing.T) {
+	inputErr := errors.New("input failed")
+	redrawErr := errors.New("redraw failed")
+	stdout := &scriptedOutputWriter{results: []scriptedWriteResult{
+		{accepted: -1},
+		{accepted: -1},
+		{accepted: -1},
+		{accepted: 0, err: redrawErr},
+	}}
+	interactive := true
+	console := New(Config{
+		Stdin:              &promptErrorReader{err: inputErr},
+		Stdout:             stdout,
+		ColorEnabled:       boolPointer(false),
+		InteractiveEnabled: &interactive,
+		UnicodeEnabled:     boolPointer(false),
+		Getenv:             getenvFrom(nil),
+	})
+	console.active = staticTransient("frame")
+
+	_, err := console.Ask("Name")
+	if !errors.Is(err, inputErr) || !errors.Is(err, redrawErr) {
+		t.Fatalf("Ask() error = %v, want joined input and redraw errors", err)
+	}
+	if console.promptActive || console.partialLine {
+		t.Fatalf("prompt state = (active %t, partial %t), want cleared", console.promptActive, console.partialLine)
+	}
+	if got, want := stdout.String(), clearTransientLine+"> Name: \n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+}
+
+// TestPromptRetryWarningsPropagateOutputErrors verifies invalid input does not hide failed guidance.
+func TestPromptRetryWarningsPropagateOutputErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		results    []scriptedWriteResult
+		call       func(*Console) error
+		wantOutput string
+	}{
+		{
+			name:    "confirm",
+			input:   "maybe\n",
+			results: []scriptedWriteResult{{accepted: -1}, {accepted: 0, err: errors.New("warning failed")}},
+			call: func(console *Console) error {
+				_, err := console.Confirm("Continue", false)
+				return err
+			},
+			wantOutput: "> Continue [y/N]: ",
+		},
+		{
+			name:  "choose",
+			input: "bad\n",
+			results: []scriptedWriteResult{
+				{accepted: -1},
+				{accepted: -1},
+				{accepted: 0, err: errors.New("warning failed")},
+			},
+			call: func(console *Console) error {
+				_, err := console.ChooseIndex("Pick", []string{"one"}, -1)
+				return err
+			},
+			wantOutput: "Pick\n1. one\n> Choose [1-1]: ",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			stdout := &scriptedOutputWriter{results: test.results}
+			interactive := true
+			console := New(Config{
+				Stdin:              strings.NewReader(test.input),
+				Stdout:             stdout,
+				ColorEnabled:       boolPointer(false),
+				InteractiveEnabled: &interactive,
+				UnicodeEnabled:     boolPointer(false),
+				Getenv:             getenvFrom(nil),
+			})
+			if err := test.call(console); err == nil || !strings.Contains(err.Error(), "warning failed") {
+				t.Fatalf("prompt error = %v, want warning output failure", err)
+			}
+			if got := stdout.String(); got != test.wantOutput {
+				t.Fatalf("stdout = %q, want %q", got, test.wantOutput)
+			}
+		})
 	}
 }
 
@@ -362,6 +597,13 @@ func TestChooseValidatesOptionsBeforePrompting(t *testing.T) {
 			if value != "" {
 				t.Fatalf("Choose() = %q, want empty", value)
 			}
+			index, indexErr := console.ChooseIndex("Pick", test.options, test.defaultIndex)
+			if indexErr == nil || !strings.Contains(indexErr.Error(), test.wantError) {
+				t.Fatalf("ChooseIndex() error = %v, want text %q", indexErr, test.wantError)
+			}
+			if index != -1 {
+				t.Fatalf("ChooseIndex() = %d, want -1", index)
+			}
 			if reader.reads != 0 {
 				t.Fatalf("input reads = %d, want 0", reader.reads)
 			}
@@ -372,6 +614,24 @@ func TestChooseValidatesOptionsBeforePrompting(t *testing.T) {
 				t.Fatalf("stderr = %q, want empty", got)
 			}
 		})
+	}
+}
+
+// TestChooseIndexReturnsZeroBasedSelection verifies callers can retain option identity without value lookup.
+func TestChooseIndexReturnsZeroBasedSelection(t *testing.T) {
+	console, stdout, stderr := newPromptTestConsole(strings.NewReader("2\n"), true)
+	index, err := console.ChooseIndex("Pick one", []string{"red", "blue"}, -1)
+	if err != nil {
+		t.Fatalf("ChooseIndex() error = %v", err)
+	}
+	if index != 1 {
+		t.Fatalf("ChooseIndex() = %d, want 1", index)
+	}
+	if got, want := stdout.String(), "Pick one\n1. red\n2. blue\n> Choose [1-2]: "; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+	if got := stderr.String(); got != "" {
+		t.Fatalf("stderr = %q, want empty", got)
 	}
 }
 
@@ -444,7 +704,7 @@ func TestPackagePromptHelpersRouteThroughDefault(t *testing.T) {
 		SetDefault(previous)
 	})
 
-	configured, _, _ := newPromptTestConsole(strings.NewReader("Ada\n\nno\n2\n"), true)
+	configured, _, _ := newPromptTestConsole(strings.NewReader("Ada\n\nno\n2\n1\n"), true)
 	configured.readSecret = func() (string, error) {
 		return "token", nil
 	}
@@ -465,6 +725,10 @@ func TestPackagePromptHelpersRouteThroughDefault(t *testing.T) {
 	choice, err := Choose("Pick", []string{"one", "two"}, -1)
 	if err != nil || choice != "two" {
 		t.Fatalf("Choose() = %q, %v; want %q, nil", choice, err, "two")
+	}
+	index, err := ChooseIndex("Pick index", []string{"one", "two"}, -1)
+	if err != nil || index != 0 {
+		t.Fatalf("ChooseIndex() = %d, %v; want 0, nil", index, err)
 	}
 	secret, err := AskSecret("Token")
 	if err != nil || secret != "token" {

@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// TestParseAPISymbols verifies documented declarations, receiver inheritance, and explicit method grouping.
+// TestParseAPISymbols verifies manifest grouping, Console parity, and receiver inheritance.
 func TestParseAPISymbols(t *testing.T) {
 	t.Parallel()
 
@@ -19,8 +19,6 @@ func TestParseAPISymbols(t *testing.T) {
 	source := `package console
 
 // Console writes semantic output.
-//
-// @group Core
 type Console struct{}
 
 // Infof writes an informational message.
@@ -28,22 +26,22 @@ func (c *Console) Infof() {}
 
 // Warnf writes a warning message.
 //
-// @group Messages
+// @group This public-doc marker is deliberately ignored.
 func (c *Console) Warnf() {}
 
 // Config controls a Console.
-//
-// @group Core
 type Config struct{}
 
 // New creates a Console.
-//
-// @group Core
 func New() *Console { return nil }
 
+// Infof writes through the default Console.
+func Infof() {}
+
+// Warnf writes through the default Console.
+func Warnf() {}
+
 // Loader reports background activity.
-//
-// @group Activity
 type Loader struct{}
 
 // Stop finishes a Loader.
@@ -53,8 +51,6 @@ func (l *Loader) Stop() {}
 func Version() string { return "" }
 
 // ANSI styles are composable presentation constants.
-//
-// @group Styling
 const (
 	// ColorRed colors text red.
 	ColorRed = "red"
@@ -63,8 +59,6 @@ const (
 )
 
 // ErrClosed indicates a closed console.
-//
-// @group Errors
 var ErrClosed = errors.New("closed")
 
 // privateHelper stays outside the public index.
@@ -81,7 +75,15 @@ func (i *internalRuntime) Start() {}
 		t.Fatal(err)
 	}
 
-	got, err := parseAPISymbols(root)
+	manifest := []apiGroupDefinition{
+		{name: "Activity", symbols: []string{"Loader"}},
+		{name: "Core", symbols: []string{"Config", "Console", "Infof", "New"}},
+		{name: "Errors", symbols: []string{"ErrClosed"}},
+		{name: "Messages", symbols: []string{"Warnf"}},
+		{name: "Other", symbols: []string{"Version"}},
+		{name: "Styling", symbols: []string{"ColorBlue", "ColorRed"}},
+	}
+	got, err := parseAPISymbolsWithManifest(root, manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,15 +94,63 @@ func (i *internalRuntime) Start() {}
 		{name: "Config", group: "Core"},
 		{name: "Console", group: "Core"},
 		{name: "Infof", receiver: "Console", group: "Core"},
+		{name: "Infof", group: "Core"},
 		{name: "New", group: "Core"},
 		{name: "ErrClosed", group: "Errors"},
 		{name: "Warnf", receiver: "Console", group: "Messages"},
+		{name: "Warnf", group: "Messages"},
 		{name: "Version", group: "Other"},
 		{name: "ColorBlue", group: "Styling"},
 		{name: "ColorRed", group: "Styling"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("parseAPISymbols() = %#v, want %#v", got, want)
+	}
+}
+
+// TestAssignAPIGroupsRejectsInvalidManifest keeps grouping complete and unambiguous as the API grows.
+func TestAssignAPIGroupsRejectsInvalidManifest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		symbols  []apiSymbol
+		manifest []apiGroupDefinition
+		want     string
+	}{
+		{
+			name:    "missing",
+			symbols: []apiSymbol{{name: "Thing"}},
+			want:    "missing from the API group manifest",
+		},
+		{
+			name:    "stale",
+			symbols: []apiSymbol{{name: "Thing"}},
+			manifest: []apiGroupDefinition{
+				{name: "Core", symbols: []string{"Thing", "Removed"}},
+			},
+			want: "stale package symbol Removed",
+		},
+		{
+			name:    "duplicate",
+			symbols: []apiSymbol{{name: "Thing"}},
+			manifest: []apiGroupDefinition{
+				{name: "Core", symbols: []string{"Thing"}},
+				{name: "Other", symbols: []string{"Thing"}},
+			},
+			want: "assigns Thing to both Core and Other",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := assignAPIGroups(test.symbols, test.manifest)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("assignAPIGroups() error = %v, want text %q", err, test.want)
+			}
+		})
 	}
 }
 
@@ -235,7 +285,7 @@ func TestOrderREADMEExamplesRejectsInvalidSelections(t *testing.T) {
 	}
 }
 
-// TestRenderAPI verifies deterministic groups, direct documentation links, and collision-free method anchors.
+// TestRenderAPI verifies global-first columns, direct documentation links, and collision-free method anchors.
 func TestRenderAPI(t *testing.T) {
 	t.Parallel()
 
@@ -249,12 +299,12 @@ func TestRenderAPI(t *testing.T) {
 	want := strings.Join([]string{
 		"## API index",
 		"",
-		"The complete API documentation is available on [pkg.go.dev](https://pkg.go.dev/github.com/goforj/console).",
+		"The complete API documentation is available on [pkg.go.dev](https://pkg.go.dev/github.com/goforj/console). Package helpers come first; `Console` methods provide the isolated equivalent, while loader and progress lifecycle methods remain on their returned values.",
 		"",
-		"| Group | API |",
-		"| --- | --- |",
-		`| Activity | <a id="loader-start"></a>[Loader.Start](https://pkg.go.dev/github.com/goforj/console#Loader.Start) · <a id="spinner-start"></a>[Spinner.Start](https://pkg.go.dev/github.com/goforj/console#Spinner.Start) |`,
-		`| Core | <a id="console"></a>[Console](https://pkg.go.dev/github.com/goforj/console#Console) |`,
+		"| Group | Package API | Instance and lifecycle API |",
+		"| --- | --- | --- |",
+		`| Activity | — | <a id="loader-start"></a>[Loader.Start](https://pkg.go.dev/github.com/goforj/console#Loader.Start) · <a id="spinner-start"></a>[Spinner.Start](https://pkg.go.dev/github.com/goforj/console#Spinner.Start) |`,
+		`| Core | <a id="console"></a>[Console](https://pkg.go.dev/github.com/goforj/console#Console) | — |`,
 	}, "\n")
 	if got != want {
 		t.Fatalf("renderAPI() =\n%s\nwant:\n%s", got, want)
@@ -313,13 +363,36 @@ func main() {
 		t.Fatal(err)
 	}
 
-	got, err := extractInlineOutput(file)
+	got, err := extractInlineOutput(fileSet, file)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := "first\n\n  padded\n"
 	if got != want {
 		t.Fatalf("extractInlineOutput() = %q, want %q", got, want)
+	}
+}
+
+// TestExtractInlineOutputRejectsDetachedComments keeps examples in the requested call-then-output form.
+func TestExtractInlineOutputRejectsDetachedComments(t *testing.T) {
+	t.Parallel()
+
+	fileSet := token.NewFileSet()
+	file, err := parser.ParseFile(fileSet, "example.go", `package main
+
+func main() {
+	println("ready")
+
+	// ready
+}
+`, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = extractInlineOutput(fileSet, file)
+	if err == nil || !strings.Contains(err.Error(), "must immediately follow") {
+		t.Fatalf("extractInlineOutput() error = %v, want adjacency error", err)
 	}
 }
 

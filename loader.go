@@ -8,7 +8,6 @@ import (
 // Loader presents one transient activity line on terminals and stable semantic lines in redirected output.
 // A Loader is concurrency-safe, single-use, and must be constructed with Console.Loader or NewLoader;
 // the first call to Stop, Success, Warn, or Fail wins.
-// @group Loaders
 type Loader struct {
 	console *Console
 
@@ -57,21 +56,18 @@ func newRealLoaderTicker(interval time.Duration) loaderTicker {
 }
 
 // Loader constructs a loader without starting it.
-// @group Loaders
 func (c *Console) Loader(message string) *Loader {
 	return &Loader{console: c, message: normalizeTransientMessage(message)}
 }
 
 // NewLoader constructs a loader using a snapshot of the current default console.
 // It does not start the loader.
-// @group Loaders
 func NewLoader(message string) *Loader {
 	return Default().Loader(message)
 }
 
 // Start begins the loader and is harmless when called more than once.
 // Animated loaders can return ErrTransientActive when another live display owns the same console.
-// @group Loaders
 func (l *Loader) Start() error {
 	l.mu.Lock()
 	if l.state != loaderReady {
@@ -103,7 +99,6 @@ func (l *Loader) Start() error {
 
 // Update changes the loader message and immediately redraws an active animation.
 // Updates after a terminal operation are ignored.
-// @group Loaders
 func (l *Loader) Update(message string) {
 	l.mu.Lock()
 	if l.state == loaderFinished {
@@ -119,28 +114,24 @@ func (l *Loader) Update(message string) {
 }
 
 // Stop removes the transient loader without printing a completion message.
-// @group Loaders
 func (l *Loader) Stop() {
 	l.finish(loaderFinishStop, "")
 }
 
 // Success completes the loader with a success message.
 // An empty message reuses the loader's current message.
-// @group Loaders
 func (l *Loader) Success(message string) {
 	l.finish(loaderFinishSuccess, message)
 }
 
 // Warn completes the loader with a warning message.
 // An empty message reuses the loader's current message.
-// @group Loaders
 func (l *Loader) Warn(message string) {
 	l.finish(loaderFinishWarn, message)
 }
 
 // Fail completes the loader with an error message on stderr.
 // An empty message reuses the loader's current message.
-// @group Loaders
 func (l *Loader) Fail(message string) {
 	l.finish(loaderFinishFail, message)
 }
@@ -221,8 +212,20 @@ func (l *Loader) renderTransient() string {
 		return ""
 	}
 	frames := l.console.marks.SpinnerFrames
-	frame := singleLineLayoutText(frames[l.frame%len(frames)])
-	messageWidth := max(l.console.Width()-VisibleWidth(frame)-1, 1)
+	width := max(l.console.Width(), 1)
+	frame := l.console.truncate(singleLineLayoutText(frames[l.frame%len(frames)]), width)
+	frameWidth := VisibleWidth(frame)
+	if frameWidth == 0 {
+		return clearTransientLine
+	}
+	value := l.console.Colorize(ColorGreen, frame)
+	messageWidth := width - frameWidth - 1
+	if messageWidth < 1 {
+		return clearTransientLine + value
+	}
 	message := l.console.truncate(l.message, messageWidth)
-	return clearTransientLine + l.console.Colorize(ColorGreen, frame) + " " + message
+	if message == "" {
+		return clearTransientLine + value
+	}
+	return clearTransientLine + value + " " + message
 }
