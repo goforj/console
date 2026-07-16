@@ -31,10 +31,16 @@ func run(stdout io.Writer) {
 	}))
 
 	name, _ := console.Ask("Name")
+	fmt.Fprintln(stdout, strings.TrimSpace(output.String()))
+	// › Name:
+	output.Reset()
 	environment, _ := console.AskDefault("Environment", "production")
+	fmt.Fprintln(stdout, strings.TrimSpace(output.String()))
+	// › Environment [production]:
+	output.Reset()
 	confirmed, _ := console.Confirm("Deploy now", false)
-	fmt.Fprintf(stdout, "%q\n", output.String())
-	// "› Name: › Environment [production]: › Deploy now [y/N]: "
+	fmt.Fprintln(stdout, strings.TrimSpace(output.String()))
+	// › Deploy now [y/N]:
 	fmt.Fprintln(stdout, name, environment, confirmed)
 	// Ada production true
 }

@@ -430,15 +430,23 @@ func ExampleAsk() {
 	}))
 
 	name, _ := console.Ask("Name")
+	fmt.Println(strings.TrimSpace(output.String()))
+	// › Name:
+	output.Reset()
 	environment, _ := console.AskDefault("Environment", "production")
+	fmt.Println(strings.TrimSpace(output.String()))
+	// › Environment [production]:
+	output.Reset()
 	confirmed, _ := console.Confirm("Deploy now", false)
-	fmt.Printf("%q\n", output.String())
-	// "› Name: › Environment [production]: › Deploy now [y/N]: "
+	fmt.Println(strings.TrimSpace(output.String()))
+	// › Deploy now [y/N]:
 	fmt.Println(name, environment, confirmed)
 	// Ada production true
 
 	// Output:
-	// "› Name: › Environment [production]: › Deploy now [y/N]: "
+	// › Name:
+	// › Environment [production]:
+	// › Deploy now [y/N]:
 	// Ada production true
 }
 
@@ -466,14 +474,24 @@ func ExampleChoose() {
 	}))
 
 	channel, _ := console.Choose("Release channel", []string{"stable", "beta"}, 0)
+	fmt.Println(strings.TrimSpace(output.String()))
+	// Release channel
+	// 1. stable
+	// 2. beta
+	// › Choose [1-2, default 1]:
+	output.Reset()
 	secret, _ := console.AskSecret("API token")
-	fmt.Printf("%q\n", output.String())
-	// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: \n› API token: \n"
+	fmt.Println(strings.TrimSpace(output.String()))
+	// › API token:
 	fmt.Println(channel, len(secret))
 	// beta 11
 
 	// Output:
-	// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: \n› API token: \n"
+	// Release channel
+	// 1. stable
+	// 2. beta
+	// › Choose [1-2, default 1]:
+	// › API token:
 	// beta 11
 }
 
@@ -639,14 +657,20 @@ func Example_ciRecipe() {
 
 	fmt.Fprintln(console.StdoutWriter(), `{"artifact":"app.tar.gz","status":"ready"}`)
 	fmt.Fprintln(console.StderrWriter(), "status: uploading app.tar.gz")
-	fmt.Printf("stdout: %q\n", machineOutput.String())
-	// stdout: "{\"artifact\":\"app.tar.gz\",\"status\":\"ready\"}\n"
-	fmt.Printf("stderr: %q\n", statusOutput.String())
-	// stderr: "status: uploading app.tar.gz\n"
+	fmt.Println("stdout:")
+	// stdout:
+	fmt.Print(machineOutput.String())
+	// {"artifact":"app.tar.gz","status":"ready"}
+	fmt.Println("stderr:")
+	// stderr:
+	fmt.Print(statusOutput.String())
+	// status: uploading app.tar.gz
 
 	// Output:
-	// stdout: "{\"artifact\":\"app.tar.gz\",\"status\":\"ready\"}\n"
-	// stderr: "status: uploading app.tar.gz\n"
+	// stdout:
+	// {"artifact":"app.tar.gz","status":"ready"}
+	// stderr:
+	// status: uploading app.tar.gz
 }
 
 // ExampleNew demonstrates an isolated console for libraries and independently configured commands.

@@ -548,6 +548,41 @@ func TestPlanAPIExamplesRequiresPlainOutputComments(t *testing.T) {
 	}
 }
 
+// TestREADMEExamplesAvoidEscapedNewlines keeps displayed console output readable as one comment per line.
+func TestREADMEExamplesAvoidEscapedNewlines(t *testing.T) {
+	t.Parallel()
+
+	root, err := findRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(filepath.Join(root, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	inGoFence := false
+	for index, line := range strings.Split(string(content), "\n") {
+		trimmed := strings.TrimSpace(line)
+		switch trimmed {
+		case "```go":
+			inGoFence = true
+			continue
+		case "```":
+			inGoFence = false
+			continue
+		}
+		if !inGoFence || !strings.HasPrefix(trimmed, "//") || !strings.Contains(trimmed, `\n`) {
+			continue
+		}
+		t.Errorf(
+			"README.md:%d Go example output contains an escaped newline; use one // comment per displayed output line: %s",
+			index+1,
+			trimmed,
+		)
+	}
+}
+
 // TestRenderAPIExamplesKeepsReceiverAnchorsDistinct verifies lifecycle methods can share names safely.
 func TestRenderAPIExamplesKeepsReceiverAnchorsDistinct(t *testing.T) {
 	t.Parallel()

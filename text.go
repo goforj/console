@@ -136,8 +136,9 @@ func (c *Console) truncate(value string, width int) string {
 //
 // Example: wrap text to a terminal width
 //
-//	fmt.Printf("%q\n", console.Wrap("ship the release", 8))
-//	// "ship the\nrelease"
+//	fmt.Println(console.Wrap("ship the release", 8))
+//	// ship the
+//	// release
 func Wrap(value string, width int) string {
 	if width < 1 || value == "" {
 		return value
@@ -272,8 +273,9 @@ func (c *Console) ExpandTabs(value string) string {
 //
 // Example: indent multiline text
 //
-//	fmt.Printf("%q\n", console.Indent("one\ntwo", "> "))
-//	// "> one\n> two"
+//	fmt.Println(console.Indent("one\ntwo", "> "))
+//	// > one
+//	// > two
 func Indent(value, prefix string) string {
 	if value == "" {
 		return ""

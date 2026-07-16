@@ -156,8 +156,8 @@ func (c *Console) ChooseIndex(prompt string, options []string, defaultIndex int)
 //		UnicodeEnabled:     &unicode,
 //	}))
 //	name, err := console.Ask("Name")
-//	fmt.Printf("%q\n", output.String())
-//	// "› Name: "
+//	fmt.Println(strings.TrimSpace(output.String()))
+//	// › Name:
 //	fmt.Println(name, err)
 //	// Ada <nil>
 func Ask(prompt string) (string, error) { return Default().Ask(prompt) }
@@ -176,8 +176,8 @@ func Ask(prompt string) (string, error) { return Default().Ask(prompt) }
 //		UnicodeEnabled:     &unicode,
 //	}))
 //	environment, err := console.AskDefault("Environment", "production")
-//	fmt.Printf("%q\n", output.String())
-//	// "› Environment [production]: "
+//	fmt.Println(strings.TrimSpace(output.String()))
+//	// › Environment [production]:
 //	fmt.Println(environment, err)
 //	// production <nil>
 func AskDefault(prompt, defaultValue string) (string, error) {
@@ -200,8 +200,8 @@ func AskDefault(prompt, defaultValue string) (string, error) {
 //		},
 //	}))
 //	secret, err := console.AskSecret("API token")
-//	fmt.Printf("%q\n", output.String())
-//	// "› API token: \n"
+//	fmt.Println(strings.TrimSpace(output.String()))
+//	// › API token:
 //	fmt.Println(len(secret), err)
 //	// 11 <nil>
 func AskSecret(prompt string) (string, error) {
@@ -222,8 +222,8 @@ func AskSecret(prompt string) (string, error) {
 //		UnicodeEnabled:     &unicode,
 //	}))
 //	confirmed, err := console.Confirm("Deploy now", false)
-//	fmt.Printf("%q\n", output.String())
-//	// "› Deploy now [y/N]: "
+//	fmt.Println(strings.TrimSpace(output.String()))
+//	// › Deploy now [y/N]:
 //	fmt.Println(confirmed, err)
 //	// true <nil>
 func Confirm(prompt string, defaultValue bool) (bool, error) {
@@ -244,8 +244,11 @@ func Confirm(prompt string, defaultValue bool) (bool, error) {
 //		UnicodeEnabled:     &unicode,
 //	}))
 //	channel, err := console.Choose("Release channel", []string{"stable", "beta"}, 0)
-//	fmt.Printf("%q\n", output.String())
-//	// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: "
+//	fmt.Println(strings.TrimSpace(output.String()))
+//	// Release channel
+//	// 1. stable
+//	// 2. beta
+//	// › Choose [1-2, default 1]:
 //	fmt.Println(channel, err)
 //	// beta <nil>
 func Choose(prompt string, options []string, defaultIndex int) (string, error) {
@@ -266,8 +269,11 @@ func Choose(prompt string, options []string, defaultIndex int) (string, error) {
 //		UnicodeEnabled:     &unicode,
 //	}))
 //	index, err := console.ChooseIndex("Release channel", []string{"stable", "beta"}, 0)
-//	fmt.Printf("%q\n", output.String())
-//	// "Release channel\n1. stable\n2. beta\n› Choose [1-2, default 1]: "
+//	fmt.Println(strings.TrimSpace(output.String()))
+//	// Release channel
+//	// 1. stable
+//	// 2. beta
+//	// › Choose [1-2, default 1]:
 //	fmt.Println(index, err)
 //	// 1 <nil>
 func ChooseIndex(prompt string, options []string, defaultIndex int) (int, error) {
