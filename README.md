@@ -13,7 +13,6 @@
   <a href="https://go.dev"><img src="https://img.shields.io/badge/go-1.24%2B-blue?logo=go" alt="Go 1.24 or newer"></a>
   <img src="https://img.shields.io/github/v/tag/goforj/console?label=version&sort=semver" alt="Latest tag">
   <a href="https://codecov.io/gh/goforj/console"><img src="https://codecov.io/github/goforj/console/graph/badge.svg" alt="Coverage"></a>
-  <a href="https://goreportcard.com/report/github.com/goforj/console"><img src="https://goreportcard.com/badge/github.com/goforj/console" alt="Go Report Card"></a>
 </p>
 
 `console` is a small toolkit for the output layer shared by command-line applications: semantic messages, coordinated writers, ANSI-aware text, composable layout, bordered and compact tables, trees, prompts, loaders, and progress. It is deliberately not a full-screen TUI framework. There is no event loop, raw-mode ownership, command parser, subprocess runner, or logging pipeline to adopt.
