@@ -40,5 +40,5 @@ func run(stdout, stderr io.Writer) {
 	// • DATABASE_URL is missing
 	// • PORT must be between 1 and 65535
 	console.Error("Validation failed")
-	// stderr: ERROR Validation failed
+	// stderr: ✖ Validation failed
 }

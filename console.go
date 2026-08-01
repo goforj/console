@@ -99,20 +99,20 @@ type Marks struct {
 	SpinnerFrames []string
 }
 
-// DefaultMarks returns the semantic marks used by a default console.
+// DefaultMarks returns the Unicode symbols used by a default console.
 //
 // Example:
 //
 //	marks := console.DefaultMarks()
 //	fmt.Println(marks.Success, marks.Warn, marks.Error)
-//	// ✔ ! ERROR
+//	// ✔ ! ✖
 func DefaultMarks() Marks {
 	return Marks{
 		Action:        "·",
 		Info:          "·",
 		Success:       "✔",
 		Warn:          "!",
-		Error:         "ERROR",
+		Error:         "✖",
 		Debug:         "?",
 		Bullet:        "•",
 		Pointer:       "›",
@@ -120,20 +120,20 @@ func DefaultMarks() Marks {
 	}
 }
 
-// ASCIIMarks returns marks suitable for constrained terminals and plain logs.
+// ASCIIMarks returns symbols suitable for constrained terminals and plain logs.
 //
 // Example:
 //
 //	marks := console.ASCIIMarks()
 //	fmt.Println(marks.Success, marks.Warn, marks.Error)
-//	// + ! ERROR
+//	// + ! x
 func ASCIIMarks() Marks {
 	return Marks{
 		Action:        "-",
 		Info:          "i",
 		Success:       "+",
 		Warn:          "!",
-		Error:         "ERROR",
+		Error:         "x",
 		Debug:         "?",
 		Bullet:        "-",
 		Pointer:       ">",

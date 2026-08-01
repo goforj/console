@@ -41,14 +41,14 @@ func ExampleAction() {
 	console.Warn("Configuration is incomplete")
 	// ! Configuration is incomplete
 	console.Error("Port already in use")
-	// ERROR Port already in use
+	// ✖ Port already in use
 
 	// Output:
 	// · Building application
 	// ✔ API ready
 	//   Worker ready
 	// ! Configuration is incomplete
-	// ERROR Port already in use
+	// ✖ Port already in use
 }
 
 // ExamplePrintln demonstrates ordinary output and writer adapters that cooperate with transient displays.
@@ -93,12 +93,12 @@ func ExampleStyle() {
 	// @readme:setup:end
 
 	fmt.Println(console.ActionMark(), console.SuccessMark(), console.ErrorMark())
-	// · ✔ ERROR
+	// · ✔ ✖
 	fmt.Println(console.Style("release ready", console.StyleBold, console.ColorGreen))
 	// release ready
 
 	// Output:
-	// · ✔ ERROR
+	// · ✔ ✖
 	// release ready
 }
 
@@ -367,13 +367,13 @@ func ExampleNewLoader() {
 	// · Publishing release
 	defer publish.Stop()
 	publish.Fail("Registry refused upload")
-	// ERROR Registry refused upload
+	// ✖ Registry refused upload
 
 	// Output:
 	// · Downloading modules
 	// ✔ Modules ready
 	// · Publishing release
-	// ERROR Registry refused upload
+	// ✖ Registry refused upload
 }
 
 // ExampleNewProgress demonstrates determinate work with a durable redirected-output contract.
@@ -623,7 +623,7 @@ func Example_validationRecipe() {
 	// • DATABASE_URL is missing
 	// • PORT must be between 1 and 65535
 	console.Error("Validation failed")
-	// ERROR Validation failed
+	// ✖ Validation failed
 
 	// Output:
 	// ◇ Configuration check
@@ -633,7 +633,7 @@ func Example_validationRecipe() {
 	// ! 2 issues need attention
 	// • DATABASE_URL is missing
 	// • PORT must be between 1 and 65535
-	// ERROR Validation failed
+	// ✖ Validation failed
 }
 
 // Example_ciRecipe demonstrates keeping machine output separate from human-facing CI status.

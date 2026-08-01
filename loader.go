@@ -262,7 +262,7 @@ func (l *Loader) Warn(message string) {
 //	}
 //	// · Uploading release
 //	loader.Fail("Registry refused upload")
-//	// ERROR Registry refused upload
+//	// ✖ Registry refused upload
 func (l *Loader) Fail(message string) {
 	l.finish(loaderFinishFail, message)
 }

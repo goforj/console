@@ -394,7 +394,7 @@ func TestSharedOutputTracksOnePhysicalLine(t *testing.T) {
 	if console.partialLine {
 		t.Fatal("partialLine = true after shared stderr newline, want false")
 	}
-	if got, want := output.String(), "partial ERROR failed\n"; got != want {
+	if got, want := output.String(), "partial x failed\n"; got != want {
 		t.Fatalf("shared output = %q, want %q", got, want)
 	}
 }
@@ -431,7 +431,7 @@ func TestConsoleSemanticMessagesUseExpectedMarksAndDestinations(t *testing.T) {
 	if got := stdout.String(); got != wantStdout {
 		t.Fatalf("semantic stdout = %q, want %q", got, wantStdout)
 	}
-	wantStderr := "ERROR failed\nERROR failed 7\n"
+	wantStderr := "x failed\nx failed 7\n"
 	if got := stderr.String(); got != wantStderr {
 		t.Fatalf("semantic stderr = %q, want %q", got, wantStderr)
 	}
@@ -570,36 +570,8 @@ func TestConsoleMarksHonorDestinationColorCapability(t *testing.T) {
 	if got := inverse.ActionMark(); got != "A" {
 		t.Fatalf("redirected stdout action mark = %q, want %q", got, "A")
 	}
-	if got, want := inverse.ErrorMark(), errorMarkStyle+"E"+ColorReset; got != want {
+	if got, want := inverse.ErrorMark(), ColorRed+"E"+ColorReset; got != want {
 		t.Fatalf("terminal stderr error mark = %q, want %q", got, want)
-	}
-}
-
-// TestConsoleErrorMarkUsesAHighContrastTerminalLabel verifies failures remain explicit with or without ANSI styling.
-func TestConsoleErrorMarkUsesAHighContrastTerminalLabel(t *testing.T) {
-	t.Parallel()
-
-	stdout := &descriptorBuffer{descriptor: 71}
-	stderr := &descriptorBuffer{descriptor: 72}
-	terminal := New(Config{
-		Stdout: stdout,
-		Stderr: stderr,
-		Getenv: getenvFrom(nil),
-		IsTerminal: func(descriptor int) bool {
-			return descriptor == 72
-		},
-	})
-	if got, want := terminal.ErrorMark(), errorMarkStyle+"ERROR"+ColorReset; got != want {
-		t.Fatalf("terminal ErrorMark() = %q, want %q", got, want)
-	}
-
-	redirected := New(Config{
-		Stdout: &bytes.Buffer{},
-		Stderr: &bytes.Buffer{},
-		Getenv: getenvFrom(nil),
-	})
-	if got, want := redirected.ErrorMark(), "ERROR"; got != want {
-		t.Fatalf("redirected ErrorMark() = %q, want %q", got, want)
 	}
 }
 
@@ -714,14 +686,14 @@ func TestFatalMessagesWriteBeforeInjectedExit(t *testing.T) {
 	console.Fatal("first")
 	console.Fatalf("second %d", 2)
 
-	wantOutput := "ERROR first\nERROR second 2\n"
+	wantOutput := "x first\nx second 2\n"
 	if got := stderr.String(); got != wantOutput {
 		t.Fatalf("fatal output = %q, want %q", got, wantOutput)
 	}
 	if want := []int{1, 1}; !reflect.DeepEqual(exitCodes, want) {
 		t.Fatalf("fatal exit codes = %v, want %v", exitCodes, want)
 	}
-	wantSnapshots := []string{"ERROR first\n", "ERROR first\nERROR second 2\n"}
+	wantSnapshots := []string{"x first\n", "x first\nx second 2\n"}
 	if !reflect.DeepEqual(outputAtExit, wantSnapshots) {
 		t.Fatalf("output observed by Exit = %q, want %q", outputAtExit, wantSnapshots)
 	}
@@ -789,7 +761,7 @@ func TestPackageHelpersRouteThroughDefault(t *testing.T) {
 		{name: "InfoMark", got: InfoMark(), want: ColorGray + "I" + ColorReset},
 		{name: "SuccessMark", got: SuccessMark(), want: ColorGreen + "S" + ColorReset},
 		{name: "WarnMark", got: WarnMark(), want: ColorYellow + "W" + ColorReset},
-		{name: "ErrorMark", got: ErrorMark(), want: errorMarkStyle + "E" + ColorReset},
+		{name: "ErrorMark", got: ErrorMark(), want: ColorRed + "E" + ColorReset},
 		{name: "DebugMark", got: DebugMark(), want: ColorGray + "D" + ColorReset},
 	}
 	for _, test := range markTests {
@@ -838,8 +810,8 @@ func TestPackageHelpersRouteThroughDefault(t *testing.T) {
 	if got := stdout.String(); got != wantStdout {
 		t.Fatalf("package helper stdout = %q, want %q", got, wantStdout)
 	}
-	errorE := errorMarkStyle + "E" + ColorReset
-	wantStderr := errorE + " error\n" + errorE + " error 9\n" + errorE + " fatal\n" + errorE + " fatal 10\n"
+	redE := ColorRed + "E" + ColorReset
+	wantStderr := redE + " error\n" + redE + " error 9\n" + redE + " fatal\n" + redE + " fatal 10\n"
 	if got := stderr.String(); got != wantStderr {
 		t.Fatalf("package helper stderr = %q, want %q", got, wantStderr)
 	}
@@ -870,7 +842,7 @@ func TestConcurrentSemanticWritesRemainAtomic(t *testing.T) {
 		if index%2 == 0 {
 			want[fmt.Sprintf("i info-%03d\n", index)]++
 		} else {
-			want[fmt.Sprintf("ERROR error-%03d\n", index)]++
+			want[fmt.Sprintf("x error-%03d\n", index)]++
 		}
 		go func() {
 			defer wait.Done()
