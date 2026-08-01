@@ -318,7 +318,7 @@ func (p *Progress) Complete(message string) {
 //	}
 //	// · Publishing release
 //	progress.Fail("Registry refused upload")
-//	// ✖ Registry refused upload
+//	// ERROR Registry refused upload
 func (p *Progress) Fail(message string) {
 	p.finish(progressFinishFail, message)
 }

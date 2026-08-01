@@ -21,7 +21,7 @@ func TestRun(t *testing.T) {
 	if got := stdout.String(); got != wantStdout {
 		t.Fatalf("stdout =\n%s\nwant:\n%s", got, wantStdout)
 	}
-	wantStderr := "✖ Validation failed\n"
+	wantStderr := "ERROR Validation failed\n"
 	if got := stderr.String(); got != wantStderr {
 		t.Fatalf("stderr = %q, want %q", got, wantStderr)
 	}

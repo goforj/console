@@ -279,7 +279,7 @@ func TestLoaderTerminalOutcomesVerifyFirstCallWins(t *testing.T) {
 			name:       "fail",
 			finish:     func(loader *Loader) { loader.Fail("broken") },
 			wantStdout: clearTransientLine + "1 work" + clearTransientLine,
-			wantStderr: "x broken\n",
+			wantStderr: "ERROR broken\n",
 		},
 	}
 
@@ -533,7 +533,7 @@ func TestLoaderStderrDoesNotCompletePartialStdout(t *testing.T) {
 
 	console.Error("failed")
 	requireNoLoaderWrite(t, stdout)
-	if got, want := stderr.String(), "x failed\n"; got != want {
+	if got, want := stderr.String(), "ERROR failed\n"; got != want {
 		t.Fatalf("stderr = %q, want %q", got, want)
 	}
 
@@ -726,7 +726,7 @@ func TestLoaderRedirectedOutputUsesStableSemanticLines(t *testing.T) {
 	if got := stdout.String(); got != wantStdout {
 		t.Fatalf("stdout = %q, want %q", got, wantStdout)
 	}
-	if got, want := stderr.String(), "x checking\n"; got != want {
+	if got, want := stderr.String(), "ERROR checking\n"; got != want {
 		t.Fatalf("stderr = %q, want %q", got, want)
 	}
 	if strings.ContainsAny(stdout.String()+stderr.String(), "\r\x1b") {

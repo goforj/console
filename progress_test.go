@@ -158,7 +158,7 @@ func TestRedirectedProgressAndLoaderDoNotContend(t *testing.T) {
 	if got, want := stdout.String(), "- progress\n- loader\n+ loader updated\n"; got != want {
 		t.Fatalf("stdout = %q, want %q", got, want)
 	}
-	if got, want := stderr.String(), "x progress updated\n"; got != want {
+	if got, want := stderr.String(), "ERROR progress updated\n"; got != want {
 		t.Fatalf("stderr = %q, want %q", got, want)
 	}
 	if got := stdout.String() + stderr.String(); strings.ContainsAny(got, "\r\x1b") {
@@ -179,7 +179,7 @@ func TestProgressFailAndStop(t *testing.T) {
 		if got, want := stdout.String(), clearTransientLine+"work [------------------------]   0%"+clearTransientLine; got != want {
 			t.Fatalf("stdout = %q, want %q", got, want)
 		}
-		if got, want := stderr.String(), "x work\n"; got != want {
+		if got, want := stderr.String(), "ERROR work\n"; got != want {
 			t.Fatalf("stderr = %q, want %q", got, want)
 		}
 	})
@@ -511,7 +511,7 @@ func TestProgressConcurrentLifecycleWritesOneOutcome(t *testing.T) {
 		if got := strings.Count(stdout.String(), "- work\n"); got != 1 {
 			t.Fatalf("iteration %d: start line count = %d, output %q", iteration, got, stdout.String())
 		}
-		outcomes := strings.Count(stdout.String(), "+ complete\n") + strings.Count(stderr.String(), "x failed\n")
+		outcomes := strings.Count(stdout.String(), "+ complete\n") + strings.Count(stderr.String(), "ERROR failed\n")
 		if outcomes != 1 {
 			t.Fatalf("iteration %d: terminal outcome count = %d, stdout %q, stderr %q", iteration, outcomes, stdout.String(), stderr.String())
 		}
@@ -530,7 +530,7 @@ func TestProgressStartPublishesRedirectedActionBeforeTerminalCalls(t *testing.T)
 		wantStderr string
 	}{
 		{name: "complete", finish: func(progress *Progress) { progress.Complete("done") }, wantStdout: "- work\n+ done\n"},
-		{name: "fail", finish: func(progress *Progress) { progress.Fail("failed") }, wantStdout: "- work\n", wantStderr: "x failed\n"},
+		{name: "fail", finish: func(progress *Progress) { progress.Fail("failed") }, wantStdout: "- work\n", wantStderr: "ERROR failed\n"},
 		{name: "stop", finish: func(progress *Progress) { progress.Stop() }, wantStdout: "- work\n"},
 	}
 	for _, test := range tests {

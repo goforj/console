@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const errorMarkStyle = "\033[37;41m"
+
 // ANSI style and color codes are grouped here so callers can compose them with Style.
 const (
 	// ColorReset resets ANSI styling.
@@ -169,7 +171,7 @@ func (c *Console) WarnMark() string {
 
 // ErrorMark returns the error indicator using the stderr color policy.
 func (c *Console) ErrorMark() string {
-	return c.mark(c.stderr, ColorRed, c.marks.Error)
+	return c.mark(c.stderr, errorMarkStyle, c.marks.Error)
 }
 
 // DebugMark returns the debug indicator.
@@ -364,7 +366,7 @@ func WarnMark() string { return Default().WarnMark() }
 // Example: inspect the error mark
 //
 //	fmt.Println(console.ErrorMark())
-//	// ✖
+//	// ERROR
 func ErrorMark() string { return Default().ErrorMark() }
 
 // DebugMark returns the default console's debug indicator.
@@ -444,7 +446,7 @@ func Warnf(format string, arguments ...any) { Default().Warnf(format, arguments.
 // Example: report an error
 //
 //	console.Error("deployment failed")
-//	// ✖ deployment failed
+//	// ERROR deployment failed
 func Error(message string) { Default().Error(message) }
 
 // Errorf prints a formatted error message through the default console.
@@ -452,7 +454,7 @@ func Error(message string) { Default().Error(message) }
 // Example: report a formatted error
 //
 //	console.Errorf("deployment failed: %s", "timeout")
-//	// ✖ deployment failed: timeout
+//	// ERROR deployment failed: timeout
 func Errorf(format string, arguments ...any) { Default().Errorf(format, arguments...) }
 
 // Fatal prints an error through the default console and exits with status 1.
@@ -463,7 +465,7 @@ func Errorf(format string, arguments ...any) { Default().Errorf(format, argument
 //		Exit: func(code int) { fmt.Println("exit", code) },
 //	}))
 //	console.Fatal("invalid configuration")
-//	// ✖ invalid configuration
+//	// ERROR invalid configuration
 //	// exit 1
 func Fatal(message string) { Default().Fatal(message) }
 
@@ -475,7 +477,7 @@ func Fatal(message string) { Default().Fatal(message) }
 //		Exit: func(code int) { fmt.Println("exit", code) },
 //	}))
 //	console.Fatalf("invalid port: %d", 0)
-//	// ✖ invalid port: 0
+//	// ERROR invalid port: 0
 //	// exit 1
 func Fatalf(format string, arguments ...any) { Default().Fatalf(format, arguments...) }
 
