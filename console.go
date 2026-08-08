@@ -49,6 +49,9 @@ type Config struct {
 	UnicodeEnabled *bool
 	// AnimationsEnabled permits or disables transient loader and progress output. Even when true, stdout must be a terminal.
 	AnimationsEnabled *bool
+	// TerminalProgressEnabled permits or disables OSC 9;4 terminal-owned progress indicators for loaders and progress displays.
+	// Nil and false disable indicators; true still requires terminal output with ANSI support.
+	TerminalProgressEnabled *bool
 
 	// Width fixes the available output width. Values less than one use terminal detection and then an 80-column fallback.
 	// Configured, detected, and environment widths are capped at 32,768 columns to keep layout allocations practical.
@@ -156,11 +159,12 @@ type Console struct {
 	stderr             io.Writer
 	stderrSharesStdout bool
 
-	colorEnabled       *bool
-	debugEnabled       *bool
-	interactiveEnabled *bool
-	unicodeEnabled     bool
-	animationsEnabled  *bool
+	colorEnabled            *bool
+	debugEnabled            *bool
+	interactiveEnabled      *bool
+	unicodeEnabled          bool
+	animationsEnabled       *bool
+	terminalProgressEnabled *bool
 
 	width          int
 	loaderInterval time.Duration
@@ -174,13 +178,15 @@ type Console struct {
 	readSecret   func() (string, error)
 	newTicker    func(time.Duration) loaderTicker
 
-	inputMu      sync.Mutex
-	sessionMu    sync.RWMutex
-	outputMu     sync.Mutex
-	transientMu  sync.Mutex
-	active       transientOwner
-	partialLine  bool
-	promptActive bool
+	inputMu               sync.Mutex
+	sessionMu             sync.RWMutex
+	outputMu              sync.Mutex
+	transientMu           sync.Mutex
+	active                transientOwner
+	terminalProgressMu    sync.Mutex
+	terminalProgressOwner terminalProgressOwner
+	partialLine           bool
+	promptActive          bool
 }
 
 var defaultState = struct {
@@ -259,26 +265,27 @@ func New(config Config) *Console {
 	}
 
 	return &Console{
-		stdin:              bufio.NewReader(stdin),
-		stdinSource:        stdin,
-		stdout:             stdout,
-		stderr:             stderr,
-		stderrSharesStdout: sameWriter(stdout, stderr),
-		colorEnabled:       cloneBool(config.ColorEnabled),
-		debugEnabled:       cloneBool(config.DebugEnabled),
-		interactiveEnabled: cloneBool(config.InteractiveEnabled),
-		unicodeEnabled:     unicodeEnabled,
-		animationsEnabled:  cloneBool(config.AnimationsEnabled),
-		width:              config.Width,
-		loaderInterval:     loaderInterval,
-		marks:              marks,
-		getenv:             getenv,
-		isTerminal:         isTerminal,
-		supportsANSI:       supportsANSI,
-		getSize:            getSize,
-		exit:               exit,
-		readSecret:         readSecret,
-		newTicker:          newRealLoaderTicker,
+		stdin:                   bufio.NewReader(stdin),
+		stdinSource:             stdin,
+		stdout:                  stdout,
+		stderr:                  stderr,
+		stderrSharesStdout:      sameWriter(stdout, stderr),
+		colorEnabled:            cloneBool(config.ColorEnabled),
+		debugEnabled:            cloneBool(config.DebugEnabled),
+		interactiveEnabled:      cloneBool(config.InteractiveEnabled),
+		unicodeEnabled:          unicodeEnabled,
+		animationsEnabled:       cloneBool(config.AnimationsEnabled),
+		terminalProgressEnabled: cloneBool(config.TerminalProgressEnabled),
+		width:                   config.Width,
+		loaderInterval:          loaderInterval,
+		marks:                   marks,
+		getenv:                  getenv,
+		isTerminal:              isTerminal,
+		supportsANSI:            supportsANSI,
+		getSize:                 getSize,
+		exit:                    exit,
+		readSecret:              readSecret,
+		newTicker:               newRealLoaderTicker,
 	}
 }
 

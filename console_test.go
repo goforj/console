@@ -102,6 +102,7 @@ func TestNewCopiesMutableConfiguration(t *testing.T) {
 	interactiveEnabled := true
 	unicodeEnabled := true
 	animationsEnabled := true
+	terminalProgressEnabled := true
 	marks := Marks{
 		Action:        "action",
 		Info:          "info",
@@ -115,16 +116,17 @@ func TestNewCopiesMutableConfiguration(t *testing.T) {
 	}
 	stdout := &descriptorBuffer{descriptor: 11}
 	console := New(Config{
-		Stdout:             stdout,
-		ColorEnabled:       &colorEnabled,
-		DebugEnabled:       &debugEnabled,
-		InteractiveEnabled: &interactiveEnabled,
-		UnicodeEnabled:     &unicodeEnabled,
-		AnimationsEnabled:  &animationsEnabled,
-		LoaderInterval:     17 * time.Millisecond,
-		Marks:              &marks,
-		Getenv:             getenvFrom(nil),
-		IsTerminal:         func(int) bool { return true },
+		Stdout:                  stdout,
+		ColorEnabled:            &colorEnabled,
+		DebugEnabled:            &debugEnabled,
+		InteractiveEnabled:      &interactiveEnabled,
+		UnicodeEnabled:          &unicodeEnabled,
+		AnimationsEnabled:       &animationsEnabled,
+		TerminalProgressEnabled: &terminalProgressEnabled,
+		LoaderInterval:          17 * time.Millisecond,
+		Marks:                   &marks,
+		Getenv:                  getenvFrom(nil),
+		IsTerminal:              func(int) bool { return true },
 	})
 
 	colorEnabled = false
@@ -132,6 +134,7 @@ func TestNewCopiesMutableConfiguration(t *testing.T) {
 	interactiveEnabled = false
 	unicodeEnabled = false
 	animationsEnabled = false
+	terminalProgressEnabled = false
 	marks.Action = "changed"
 	marks.SpinnerFrames[0] = "changed"
 
@@ -149,6 +152,9 @@ func TestNewCopiesMutableConfiguration(t *testing.T) {
 	}
 	if !console.shouldAnimate() {
 		t.Fatal("shouldAnimate() = false after caller mutation, want true")
+	}
+	if !console.shouldRenderTerminalProgress() {
+		t.Fatal("shouldRenderTerminalProgress() = false after caller mutation, want true")
 	}
 	if got := console.loaderInterval; got != 17*time.Millisecond {
 		t.Fatalf("loaderInterval = %s, want %s", got, 17*time.Millisecond)
