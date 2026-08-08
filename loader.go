@@ -2,6 +2,7 @@ package console
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,13 +30,14 @@ import (
 type Loader struct {
 	console *Console
 
-	mu      sync.Mutex
-	message string
-	state   loaderState
-	dynamic bool
-	frame   int
-	stop    chan struct{}
-	done    chan struct{}
+	mu           sync.Mutex
+	message      string
+	state        loaderState
+	dynamic      bool
+	frame        int
+	stop         chan struct{}
+	done         chan struct{}
+	terminalDone atomic.Bool
 }
 
 // loaderState identifies the one-way loader lifecycle.
@@ -138,6 +140,7 @@ func (l *Loader) Start() error {
 		go l.animate(l.stop, l.done)
 		l.mu.Unlock()
 		l.console.renderTransient(l)
+		l.console.setTerminalProgress(l, terminalProgressStateIndeterminate, 0)
 		return nil
 	}
 
@@ -145,6 +148,7 @@ func (l *Loader) Start() error {
 	message := l.message
 	l.console.Action(message)
 	l.mu.Unlock()
+	l.console.setTerminalProgress(l, terminalProgressStateIndeterminate, 0)
 	return nil
 }
 
@@ -294,6 +298,7 @@ func (l *Loader) finish(outcome loaderFinish, message string) {
 		message = normalizeTransientMessage(message)
 	}
 	l.state = loaderFinished
+	l.terminalDone.Store(true)
 	l.mu.Unlock()
 
 	if dynamic {
@@ -301,6 +306,7 @@ func (l *Loader) finish(outcome loaderFinish, message string) {
 		<-done
 		l.console.releaseTransient(l, outcome != loaderFinishStop)
 	}
+	l.console.clearTerminalProgress(l)
 
 	switch outcome {
 	case loaderFinishSuccess:
@@ -310,6 +316,11 @@ func (l *Loader) finish(outcome loaderFinish, message string) {
 	case loaderFinishFail:
 		l.console.Error(message)
 	}
+}
+
+// terminalProgressFinished lets the console reject loader updates that lost a race with completion.
+func (l *Loader) terminalProgressFinished() bool {
+	return l.terminalDone.Load()
 }
 
 // animate advances frames until the winning terminal operation closes stop.

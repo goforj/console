@@ -85,6 +85,7 @@ fmt.Printf("%q\n", strings.TrimSuffix(output.String(), "\n"))
 - Bordered tables by default, plus one compact form, fixed widths, alignment, wrapping, and ASCII fallbacks.
 - Line-oriented questions, defaults, confirmation, numbered choices, and non-echoed secret input.
 - Concurrency-safe loaders and determinate progress that become stable semantic lines when redirected.
+- Optional terminal-owned progress indicators for terminal tabs, windows, and taskbars that support OSC 9;4.
 - Configurable writers, input, marks, terminal hooks, environment lookup, and exit behavior.
 
 ## Design principles
@@ -155,6 +156,8 @@ fmt.Print(output.String())
 ```
 
 On a terminal a loader animates in place, while progress uses one adaptive bar with a percentage. Narrow terminals fall back to message and percentage. With automatic policy, redirected output and conventional truthy `CI` environments use only a start line and the final success or error, so captured logs stay useful. `AnimationsEnabled` can explicitly opt a terminal back into animation.
+
+Set `TerminalProgressEnabled` to `true` to mirror loader and progress lifecycles through the OSC 9;4 terminal progress protocol. Loaders publish indeterminate activity, determinate progress publishes its current percentage, and every terminal outcome clears the indicator. Supporting terminal emulators decide whether that appears in a tab, window edge, or operating-system taskbar; unsupported terminals ignore the sequence. The option is independent of `AnimationsEnabled`, still requires terminal output with ANSI support, and never writes control sequences to redirected output.
 
 Representative terminal snapshots are shown below; each display redraws one physical line rather than appending these frames. The last line is the exact Unicode rendering at a width of 14 cells.
 

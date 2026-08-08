@@ -6,6 +6,7 @@ import (
 	"math/bits"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // errInvalidProgressTotal reports a total that cannot represent determinate progress.
@@ -36,12 +37,13 @@ var errInvalidProgressTotal = errors.New("console: progress total must be greate
 type Progress struct {
 	console *Console
 
-	mu      sync.Mutex
-	message string
-	total   int
-	current int
-	state   progressState
-	dynamic bool
+	mu           sync.Mutex
+	message      string
+	total        int
+	current      int
+	state        progressState
+	dynamic      bool
+	terminalDone atomic.Bool
 }
 
 // progressState identifies the one-way progress lifecycle.
@@ -117,6 +119,7 @@ func (p *Progress) Start() error {
 	}
 
 	p.dynamic = p.console.shouldAnimate()
+	percent := progressPercent(p.current, p.total)
 	if p.dynamic {
 		if err := p.console.acquireTransient(p); err != nil {
 			p.mu.Unlock()
@@ -125,6 +128,7 @@ func (p *Progress) Start() error {
 		p.state = progressRunning
 		p.mu.Unlock()
 		p.console.renderTransient(p)
+		p.console.setTerminalProgress(p, terminalProgressStateDeterminate, percent)
 		return nil
 	}
 
@@ -132,6 +136,7 @@ func (p *Progress) Start() error {
 	message := p.message
 	p.console.Action(message)
 	p.mu.Unlock()
+	p.console.setTerminalProgress(p, terminalProgressStateDeterminate, percent)
 	return nil
 }
 
@@ -161,10 +166,16 @@ func (p *Progress) Set(current int) {
 		return
 	}
 	p.current = clampProgressValue(current, p.total)
-	dynamic := p.state == progressRunning && p.dynamic
+	running := p.state == progressRunning
+	dynamic := running && p.dynamic
+	current = p.current
+	total := p.total
 	p.mu.Unlock()
 	if dynamic {
 		p.console.renderTransient(p)
+	}
+	if running {
+		p.console.setTerminalProgress(p, terminalProgressStateDeterminate, progressPercent(current, total))
 	}
 }
 
@@ -204,10 +215,16 @@ func (p *Progress) Add(delta int) {
 	} else {
 		p.current += delta
 	}
-	dynamic := p.state == progressRunning && p.dynamic
+	running := p.state == progressRunning
+	dynamic := running && p.dynamic
+	current := p.current
+	total := p.total
 	p.mu.Unlock()
 	if dynamic {
 		p.console.renderTransient(p)
+	}
+	if running {
+		p.console.setTerminalProgress(p, terminalProgressStateDeterminate, progressPercent(current, total))
 	}
 }
 
@@ -239,10 +256,16 @@ func (p *Progress) Step(current int, message string) {
 	}
 	p.current = clampProgressValue(current, p.total)
 	p.message = normalizeTransientMessage(message)
-	dynamic := p.state == progressRunning && p.dynamic
+	running := p.state == progressRunning
+	dynamic := running && p.dynamic
+	current = p.current
+	total := p.total
 	p.mu.Unlock()
 	if dynamic {
 		p.console.renderTransient(p)
+	}
+	if running {
+		p.console.setTerminalProgress(p, terminalProgressStateDeterminate, progressPercent(current, total))
 	}
 }
 
@@ -370,11 +393,13 @@ func (p *Progress) finish(outcome progressFinish, message string) {
 		message = normalizeTransientMessage(message)
 	}
 	p.state = progressFinished
+	p.terminalDone.Store(true)
 	p.mu.Unlock()
 
 	if dynamic {
 		p.console.releaseTransient(p, outcome != progressFinishStop)
 	}
+	p.console.clearTerminalProgress(p)
 
 	switch outcome {
 	case progressFinishComplete:
@@ -382,6 +407,11 @@ func (p *Progress) finish(outcome progressFinish, message string) {
 	case progressFinishFail:
 		p.console.Error(message)
 	}
+}
+
+// terminalProgressFinished lets the console reject progress updates that lost a race with completion.
+func (p *Progress) terminalProgressFinished() bool {
+	return p.terminalDone.Load()
 }
 
 // renderTransient snapshots one carriage-return frame while the console owns output coordination.
