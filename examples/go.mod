@@ -10,4 +10,4 @@ require (
 	golang.org/x/term v0.35.0 // indirect
 )
 
-replace github.com/goforj/console => ..
+replace github.com/goforj/console => ./..
