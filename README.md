@@ -10,7 +10,7 @@
   <a href="https://pkg.go.dev/github.com/goforj/console"><img src="https://pkg.go.dev/badge/github.com/goforj/console.svg" alt="Go Reference"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://github.com/goforj/console/actions"><img src="https://github.com/goforj/console/actions/workflows/test.yml/badge.svg" alt="Go Test"></a>
-  <a href="https://go.dev"><img src="https://img.shields.io/badge/go-1.24%2B-blue?logo=go" alt="Go 1.24 or newer"></a>
+  <a href="https://go.dev"><img src="https://img.shields.io/badge/go-1.25%2B-blue?logo=go" alt="Go 1.25 or newer"></a>
   <img src="https://img.shields.io/github/v/tag/goforj/console?label=version&sort=semver" alt="Latest tag">
   <a href="https://codecov.io/gh/goforj/console"><img src="https://codecov.io/github/goforj/console/graph/badge.svg" alt="Coverage"></a>
 </p>
@@ -19,7 +19,7 @@
 
 ## Installation
 
-Requires Go 1.24 or newer.
+Requires Go 1.25 or newer.
 
 ```sh
 go get github.com/goforj/console
