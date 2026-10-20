@@ -2346,3 +2346,7 @@ The tag runs the same test matrix before the Go module proxy discovers the relea
 ## License
 
 Released under the [MIT License](LICENSE).
+
+## Documentation
+
+Read the [console library documentation](https://goforj.dev/console) for standalone installation, usage, and API reference.
